@@ -24,6 +24,8 @@ CREATE TABLE Differential_Expression (
     gid INT not null,
     cdid INT not null,
     cell_id INT not null,
+    lfcSE FLOAT,
+    stat FLOAT,
     log2foldchange FLOAT,
     p_value FLOAT,
     padj FLOAT,
