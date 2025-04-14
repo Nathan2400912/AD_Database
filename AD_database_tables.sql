@@ -24,11 +24,10 @@ CREATE TABLE Differential_Expression (
     gid INT not null,
     cdid INT not null,
     cell_id INT not null,
-    lfcSE FLOAT,
-    stat FLOAT,
     log2foldchange FLOAT,
     p_value FLOAT,
     padj FLOAT,
+    baseMean FLOAT,
     -- expression_status ENUM('upregulated', 'downregulated', 'not significant'),
     FOREIGN KEY (gid) REFERENCES Genes(gid), -- merge based on entrez symbol
     FOREIGN KEY (cdid) REFERENCES Conditions(cdid), -- merge based on condition name
