@@ -27,7 +27,7 @@ CREATE TABLE Differential_Expression (
     log2foldchange FLOAT,
     p_value FLOAT,
     padj FLOAT,
-    expression_status ENUM('upregulated', 'downregulated', 'not significant'),
+    -- expression_status ENUM('upregulated', 'downregulated', 'not significant'),
     FOREIGN KEY (gid) REFERENCES Genes(gid), -- merge based on entrez symbol
     FOREIGN KEY (cdid) REFERENCES Conditions(cdid), -- merge based on condition name
     Foreign key (cell_id) references CELL_TYPE (cell_id), -- merge based on cell type
