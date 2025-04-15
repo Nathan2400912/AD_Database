@@ -36,22 +36,18 @@ CREATE TABLE Differential_Expression (
 
 CREATE TABLE Cis_Regulatory_Elements (
     cid INT not null auto_increment,
+    cdid INT not null,
+    cell_id INT not null,
     chromosome INT,
     start_position INT,
     end_position INT,
+    cre_log2foldchange FLOAT,
     mcid INT not null,
     FOREIGN KEY (mcid) REFERENCES Merged_CRES(mcid), -- merge based on merge cre chr, start and end
-    Primary key (cid));
-
-CREATE TABLE CRE_condition ( -- ternary relationship
-    cid INT not null,
-    cdid INT not null,
-    cell_id INT not null,
-    cre_log2foldchange FLOAT,
-    FOREIGN KEY (cid) REFERENCES Cis_Regulatory_Elements(cid), -- merge based on chr, start and end
     FOREIGN KEY (cdid) REFERENCES Conditions(cdid), -- same as above
-    Foreign key (cell_id) references CELL_TYPE (cell_id), -- same as above
-    Primary key (cid, cdid, cell_id));
+    Foreign key (cell_id) references CELL_TYPE (cell_id),
+    UNIQUE (cell_id, cdid), -- one to one 
+    Primary key (cid));
 
 CREATE TABLE Merged_CRES (
     mcid INT not null auto_increment,
@@ -75,14 +71,14 @@ CREATE TABLE CRE_Gene_Interactions ( -- many to many
 
 CREATE TABLE TF_CRE_Interactions ( -- quartnery relationship
     tfid INT not null,
-    cid INT not null,
+    mcid INT not null,
     cdid INT not null,
     cell_id not null,
     FOREIGN KEY (tfid) REFERENCES Transcription_Factors(tfid), -- merge based on tf name 
-    FOREIGN KEY (cid) REFERENCES Cis_Regulatory_Elements(cid), -- same as above
+    FOREIGN KEY (mcid) REFERENCES Merged_CRES(mcid), -- merge based on merge cre chr, start and end
     FOREIGN KEY (cdid) REFERENCES Conditions(cdid), -- same as above
     Foreign key (cell_id) references cell_type (cell_id), -- same as above
-    Primary key (tfid, cid, cdid, cell_id));
+    Primary key (tfid, mcid, cdid, cell_id));
 
 CREATE TABLE Biological_Pathways (
     pid INT not null auto_increment,
