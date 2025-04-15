@@ -3,14 +3,14 @@ CREATE TABLE Genes (
     gene_symbol VARCHAR(50),
     Ensembl_ID VARCHAR(50),
     Entrez_ID VARCHAR(50),
-    chromosome INT,
-    start_position INT,
-    end_position INT,
+    chromosome VARCHAR(50),
+    start_position BIGINT,
+    end_position BIGINT,
     strand enum('+', '-'),
     primary key (gid));
 
 CREATE Table Cell_Type (
-    cell_id not null auto_increment,
+    cell_id INT not null auto_increment,
     Cell_type varchar(30),
     Primary key(cell_id));
 
@@ -38,22 +38,21 @@ CREATE TABLE Cis_Regulatory_Elements (
     cid INT not null auto_increment,
     cdid INT not null,
     cell_id INT not null,
-    chromosome INT,
-    start_position INT,
-    end_position INT,
+    chromosome VARCHAR(50),
+    start_position BIGINT,
+    end_position BIGINT,
     cre_log2foldchange FLOAT,
     mcid INT not null,
     FOREIGN KEY (mcid) REFERENCES Merged_CRES(mcid), -- merge based on merge cre chr, start and end
     FOREIGN KEY (cdid) REFERENCES Conditions(cdid), -- same as above
     Foreign key (cell_id) references CELL_TYPE (cell_id),
-    UNIQUE (cell_id, cdid), -- one to one 
     Primary key (cid));
 
 CREATE TABLE Merged_CRES (
     mcid INT not null auto_increment,
-    chromosome INT,
-    start_position INT,
-    end_position INT,
+    chromosome VARCHAR(50),
+    start_position BIGINT,
+    end_position BIGINT,
     Primary key (mcid));
 
 CREATE TABLE Transcription_Factors (
