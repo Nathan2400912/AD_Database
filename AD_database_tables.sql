@@ -1,4 +1,4 @@
-CREATE TABLE Genes (
+CREATE TABLE Genes ( 
     gid INT not null auto_increment,
     gene_symbol VARCHAR(50),
     Ensembl_ID VARCHAR(50),
@@ -11,7 +11,7 @@ CREATE TABLE Genes (
 
 CREATE Table Cell_Type (
     cell_id INT not null auto_increment,
-    Cell_type varchar(30),
+    cell varchar(30),
     Primary key(cell_id));
 
 CREATE TABLE Conditions (
@@ -20,21 +20,21 @@ CREATE TABLE Conditions (
     disease_category VARCHAR(100),
     Primary key (cdid));
 
-CREATE TABLE Differential_Expression (
+CREATE TABLE Differential_Expression ( --------------------
     gid INT not null,
     cdid INT not null,
     cell_id INT not null,
+    baseMean FLOAT,
     log2foldchange FLOAT,
     p_value FLOAT,
     padj FLOAT,
-    baseMean FLOAT,
     -- expression_status ENUM('upregulated', 'downregulated', 'not significant'),
     FOREIGN KEY (gid) REFERENCES Genes(gid), -- merge based on entrez symbol
     FOREIGN KEY (cdid) REFERENCES Conditions(cdid), -- merge based on condition name
     Foreign key (cell_id) references CELL_TYPE (cell_id), -- merge based on cell type
     Primary key (gid, cdid, cell_id));
 
-CREATE TABLE Cis_Regulatory_Elements (
+CREATE TABLE Cis_Regulatory_Elements ( ---------------------
     cid INT not null auto_increment,
     cdid INT not null,
     cell_id INT not null,
@@ -60,7 +60,7 @@ CREATE TABLE Transcription_Factors (
     name VARCHAR(50),
     Primary key (tfid));
 
-CREATE TABLE CRE_Gene_Interactions ( -- many to many 
+CREATE TABLE CRE_Gene_Interactions ( -- many to many  -------------------------------
     cid INT not null,
     gid INT not null,
     distance_to_TSS INT,
@@ -79,12 +79,12 @@ CREATE TABLE TF_CRE_Interactions ( -- quartnery relationship
     Foreign key (cell_id) references cell_type (cell_id), -- same as above
     Primary key (tfid, mcid, cdid, cell_id));
 
-CREATE TABLE Biological_Pathways (
+CREATE TABLE Biological_Pathways ( -------------------------
     pid INT not null auto_increment,
 	name VARCHAR(100),
     Primary key (pid));
 
-CREATE TABLE Gene_Pathway_Associations (
+CREATE TABLE Gene_Pathway_Associations ( --------------------------
     gid INT not null,
     pid INT not null,
     FOREIGN KEY (gid) REFERENCES Genes(gid), -- merge based on entrez
