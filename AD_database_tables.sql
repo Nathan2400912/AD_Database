@@ -87,6 +87,8 @@ CREATE TABLE Biological_Pathways (
 CREATE TABLE Gene_Pathway_Associations ( --------------------------
     gid INT not null,
     pid INT not null,
+    padj FLOAT, 
+    NES FLOAT,
     FOREIGN KEY (gid) REFERENCES Genes(gid), -- merge based on entrez
     FOREIGN KEY (pid) REFERENCES Biological_Pathways(pid), -- merge based on pathway name 
     Primary key (gid, pid));
