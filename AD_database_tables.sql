@@ -20,7 +20,7 @@ CREATE TABLE Conditions (
     disease_category VARCHAR(100),
     Primary key (cdid));
 
-CREATE TABLE Differential_Expression ( --------------------
+CREATE TABLE Differential_Expression (
     gid INT not null,
     cdid INT not null,
     cell_id INT not null,
@@ -79,7 +79,7 @@ CREATE TABLE TF_CRE_Interactions ( -- quartnery relationship
     Foreign key (cell_id) references cell_type (cell_id), -- same as above
     Primary key (tfid, mcid, cdid, cell_id));
 
-CREATE TABLE Biological_Pathways ( -------------------------
+CREATE TABLE Biological_Pathways (
     pid INT not null auto_increment,
 	name VARCHAR(100),
     Primary key (pid));

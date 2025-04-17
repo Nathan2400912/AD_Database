@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Genomic Interactions Database</title>
+    <title>Genomic Interactions Database - Data Downloads</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
@@ -30,25 +30,194 @@
             line-height: 1.6;
             font-size: 16px;
         }
+        h1, h2, h3, h4, h5, h6 {
+            font-weight: 600;
+            line-height: 1.2;
+            margin-bottom: 1rem;
+            color: var(--primary);
+        }
 
-        /* Dataset List Section */
-        #dataset-list {
-            display: none; /* Hidden by default */
-            padding: 20px;
-            background-color: #f4f4f4;
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            margin-bottom: 1.2rem;
+        }
+
+        p {
+            margin-bottom: 1.5rem;
+        }
+
+        /* Navigation */
+        .navbar {
+            background-color: var(--white);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 1.3rem;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .navbar a {
+            text-decoration: none;
+            color: var(--dark-gray);
+            font-weight: 500;
+            transition: var(--transition);
+            position: relative;
+            padding: 0.5rem 0;
+        }
+
+        .navbar a:hover {
+            color: var(--primary);
+        }
+
+        .navbar a::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 2px;
+            width: 0;
+            background-color: var(--primary);
+            transition: var(--transition);
+        }
+
+        .navbar a:hover::after {
+            width: 100%;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1200px;
+            margin: 3rem auto;
+            padding: 0 2rem;
+        }
+
+        /* Hero Section */
+        .hero {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 3rem 1rem 4rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border-radius: 20px;
+            margin-bottom: 3rem;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: var(--white);
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            max-width: 700px;
+            margin-bottom: 2rem;
+        }
+
+        /* Card */
+        .card {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 2.5rem;
+            margin-bottom: 2.5rem;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Button */
+        .button {
+            background: var(--primary);
+            color: white;
+            padding: 1rem 2rem;
+            border: none;
             border-radius: 8px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-weight: 500;
+            font-size: 1rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+        }
+
+        .button:hover {
+            background: #287a5e;
+            transform: translateY(-2px);
+        }
+
+        /* Dataset List */
+        .dataset-container {
             margin-top: 20px;
         }
 
         .dataset-item {
-            padding: 10px;
-            background-color: white;
-            margin-bottom: 10px;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            background-color: var(--white);
+            margin-bottom: 1.5rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
         }
 
-        /* Footer Section */
+        .dataset-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+        }
+
+        .dataset-item p {
+            margin-bottom: 0.8rem;
+        }
+
+        .dataset-item strong {
+            color: var(--primary);
+        }
+
+        .dataset-item a {
+            display: inline-block;
+            margin-top: 0.5rem;
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+        .dataset-item a:hover {
+            color: var(--secondary);
+            text-decoration: underline;
+        }
+
+        /* Footer */
         .footer {
             background: var(--primary);
             color: var(--white);
@@ -82,111 +251,179 @@
             color: var(--white);
             text-decoration: underline;
         }
+
+        @media (max-width: 992px) {
+            .footer-content {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .navbar {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .nav-links {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .footer-content {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .card {
+                padding: 1.5rem;
+            }
+            
+            .hero {
+                padding: 2rem 1rem;
+            }
+        }
     </style>
 </head>
 <body>
+    <nav class="navbar">
+        <a href="base.html" class="logo">
+            <i class="fas fa-dna"></i>
+            GeneInteract
+        </a>
+        <div class="nav-links">
+            <a href="base.html">Home</a>
+            <a href="base.html#search">Search</a>
+            <a href="base.html#help">Help</a>
+            <a href="#downloads">Downloads</a>
+        </div>
+    </nav>
 
+    <div class="container">
+        <!-- Introduction Hero -->
+        <section class="hero">
+            <h1>Database Datasets</h1>
+            <p>Access genomic datasets used in this database to support your research on gene regulatory interactions and disease associations.</p>
+            <a href="#dataset-list" class="button">
+                <i class="fas fa-file-code"></i>
+                View Datasets
+            </a>
+        </section>
+
+        <!-- Dataset List Section -->
+        <section id="dataset-list" class="card">
+            <h2>Available Datasets</h2>
+            <p>The following datasets are available for download. Each dataset contains genomic interaction data from various experimental conditions and biological contexts.</p>
+            
+            <div class="dataset-container">
+                <!-- Dataset 1 -->
+                <div class="dataset-item">
+                    <h3>IFN-beta Stimulated Microglia</h3>
+                    <p><strong>Condition:</strong> IFN-beta stimulated</p>
+                    <p><strong>Detail:</strong> ATAC-seq for both resting and IFN-beta stimulated human iPSC and ESC-derived microglia</p>
+                    <p><strong>ID:</strong> GSE206479</p>
+                    <p><strong>Year:</strong> 2023</p>
+                    <p><strong>Publication:</strong> Yang X, Wen J, Yang H, Jones IR et al. Functional characterization of Alzheimer's disease-related chromatin modifications in human microglia.</p>
+                    <p><strong>Sequencing Type:</strong> ATAC-seq, RNA-seq</p>
+                    <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE173316" target="_blank">
+                        <i class="fas fa-external-link-alt"></i> Access Dataset
+                    </a>
+                </div>
+
+                <!-- Dataset 2 -->
+                <div class="dataset-item">
+                    <h3>AD Mutant Microglia</h3>
+                    <p><strong>Condition:</strong> AD mutant</p>
+                    <p><strong>Detail:</strong> Isogenic human ES-derived microglia-like cell lines (hMGLs) harboring AD variants in CD33, INPP5D, SORL1 and TREM2 loci</p>
+                    <p><strong>ID:</strong> GSE153658</p>
+                    <p><strong>Year:</strong> 2020</p>
+                    <p><strong>Publication:</strong> Liu T, Zhu B, Liu Y, Zhang X et al. Multi-omic comparison of Alzheimer's variants in human ESC-derived microglia reveals convergence at APOE</p>
+                    <p><strong>Sequencing Type:</strong> ATAC-seq, RNA-seq, ChIP-seq and proteomics</p>
+                    <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE153658" target="_blank">
+                        <i class="fas fa-external-link-alt"></i> Access Dataset
+                    </a>
+                </div>
+
+                <!-- Dataset 3 -->
+                <div class="dataset-item">
+                    <h3>Co-cultured and Xenotransplanted Microglia</h3>
+                    <p><strong>Condition:</strong> Co-cultured with cerebral organoid, or xenotransplanted into mouse</p>
+                    <p><strong>Detail:</strong> iPSC-derived microglia (EC11), co-cultured with cerebral organoid, or 7 days, 12 days or 8 weeks post-xenotransplantion into mouse</p>
+                    <p><strong>ID:</strong> GSE226690</p>
+                    <p><strong>Year:</strong> 2023</p>
+                    <p><strong>Publication:</strong> Han CZ et. al. Human microglia maturation is underpinned by specific gene regulatory networks.</p>
+                    <p><strong>Sequencing Type:</strong> RNA-seq, scRNA-seq, ATAC-seq, scATAC-seq, ChIP-seq</p>
+                    <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE226690" target="_blank">
+                        <i class="fas fa-external-link-alt"></i> Access Dataset
+                    </a>
+                </div>
+            </div>
+        </section>
+    </div>
     <footer class="footer">
         <div class="footer-content">
             <div class="footer-section">
                 <h3>About</h3>
-                <a href="#" onclick="showSection('about')">About Us</a>
-                <a href="#" onclick="showSection('team')">Team</a>
+                <a href="base.html#about">About Us</a>
+                <a href="base.html#team">Team</a>
             </div>
             <div class="footer-section">
                 <h3>Resources</h3>
-                <!-- Link to show datasets -->
-                <a href="#" onclick="openDatasetList()">Download Data</a>
-                <a href="#" onclick="showSection('tutorials')">Tutorials</a>
+                <a href="Resources_DownloadData.html">Download Data</a>
+                <a href="base.html#tutorials">Tutorials</a>
             </div>
             <div class="footer-section">
                 <h3>Connect</h3>
-                <a href="#" onclick="showSection('contact')">Contact</a>
-                <a href="#" onclick="showSection('github')">GitHub</a>
+                <a href="base.html#contact">Contact</a>
+                <a href="base.html#github">GitHub</a>
             </div>
             <div class="footer-section">
                 <h3>Legal</h3>
-                <a href="#" onclick="showSection('dataUsage')">Data Usage</a>
-                <a href="#" onclick="showSection('citations')">Citations</a>
+                <a href="base.html#dataUsage">Data Usage</a>
+                <a href="base.html#citations">Citations</a>
             </div>
         </div>
     </footer>
-
-<!-- Section to display the datasets -->
-<div id="dataset-list">
-    <h2>Available Datasets</h2>
-
-    <!-- Dataset 1 -->
-    <div class="dataset-item">
-        <p><strong>Condition:</strong> IFN-beta stimulated</p>
-        <p><strong>Detail:</strong> ATAC-seq for both resting and IFN-beta stimulated human iPSC and ESC-derived microglia</p>
-        <p><strong>ID:</strong> GSE206479</p>
-        <p><strong>Year:</strong> 2023</p>
-        <p><strong>Publication:</strong> Yang X, Wen J, Yang H, Jones IR et al. Functional characterization of Alzheimer's disease-related chromatin modifications in human microglia. </p>
-        <p><strong>Sequencing Type:</strong> ATAC-seq, RNA-seq</p>
-        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE173316" target="_blank">Synapse Link</a>
-    </div>
-
-    <!-- Dataset 2 -->
-    <div class="dataset-item">
-        <p><strong>Condition:</strong> AD mutant</p>
-        <p><strong>Detail:</strong> Isogenic human ES-derived microglia-like cell lines (hMGLs) harboring AD variants in CD33, INPP5D, SORL1 and TREM2 loci</p>
-        <p><strong>ID:</strong> GSE153658</p>
-        <p><strong>Year:</strong> 2020</p>
-        <p><strong>Publication:</strong> Liu T, Zhu B, Liu Y, Zhang X et al. Multi-omic comparison of Alzheimer's variants in human ESC-derived microglia reveals convergence at APOE </p>
-        <p><strong>Sequencing Type:</strong> ATAC-seq, RNA-seq, ChIP-seq and proteomics </p>
-        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE153658" target="_blank">Synapse Link</a>
-    </div>
-
-    <!-- Dataset 3 -->
-    <div class="dataset-item">
-        <p><strong>Condition:</strong> Co-cultured with cerebral organoid, or xenotransplanted into mouse</p>
-        <p><strong>Detail:</strong> iPSC-derived microglia (EC11), co-cultured with cerebral organoid, or 7 days, 12 days or 8 weeks post-xenotransplantion into mouse </p>
-        <p><strong>ID:</strong> GSE226690</p>
-        <p><strong>Year:</strong> 2023</p>
-        <p><strong>Publication:</strong> Han CZ et. al. Human microglia maturation is underpinned by specific gene regulatory networks. </p>
-        <p><strong>Sequencing Type:</strong> RNA-seq, scRNA-seq, ATAC-seq, scATAC-seq, ChIP-seq</p>
-        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE226690" target="_blank">Synapse Link</a>
-    </div>
-
-    <!-- Additional Datasets can follow in the same format -->
-</div>
-
-
     <script>
-// Function to open the dataset list when "Download Data" is clicked
-function openDatasetList() {
-    document.getElementById("dataset-list").style.display = "block"; // Show the dataset list
-    // Hide all other sections except dataset list
-    hideOtherSections('dataset-list');
-}
+    // Function to open the dataset list when "Download Data" is clicked
+    function openDatasetList() {
+        document.getElementById("dataset-list").style.display = "block";
+    }
 
-// Function to show other sections (like About, Tutorials, etc.)
-function showSection(section) {
-    // Hide the dataset list first if it's open
-    document.getElementById("dataset-list").style.display = "none";
+    // Function to show other sections (like About, Tutorials, etc.)
+    function showSection(section) {
+        // Show the clicked section
+        document.getElementById(section).style.display = 'block';
+    }
+
+    function hideOtherSections(except) {
+        const sections = ['about', 'team', 'tutorials', 'contact', 'github', 'dataUsage', 'citations', 'dataset-list'];
+        sections.forEach(sec => {
+            if (sec !== except) {
+                document.getElementById(sec).style.display = 'none';
+            }
+        });
+    }
     
-    // Hide all other sections
-    const sections = ['about', 'team', 'tutorials', 'contact', 'github', 'dataUsage', 'citations', 'dataset-list'];
-    sections.forEach(sec => {
-        document.getElementById(sec).style.display = 'none';
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function(e) {
+            e.preventDefault();
+            const targetId = this.getAttribute('href').substring(1);
+            const targetElement = document.getElementById(targetId);
+            
+            if (targetElement) {
+                window.scrollTo({
+                    behavior: 'smooth',
+                    top: targetElement.offsetTop - 100
+                });
+            }
+        });
     });
-
-    // Show the clicked section
-    document.getElementById(section).style.display = 'block';
-}
-
-// Hide all other sections except the one passed as an argument
-function hideOtherSections(except) {
-    const sections = ['about', 'team', 'tutorials', 'contact', 'github', 'dataUsage', 'citations', 'dataset-list'];
-    sections.forEach(sec => {
-        if (sec !== except) {
-            document.getElementById(sec).style.display = 'none';
-        }
-    });
-}
-
     </script>
-
-</body>
+    </body>
 </html>
