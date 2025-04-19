@@ -34,7 +34,7 @@ CREATE TABLE Differential_Expression (
     Foreign key (cell_id) references CELL_TYPE (cell_id), -- merge based on cell type
     Primary key (gid, cdid, cell_id));
 
-CREATE TABLE Cis_Regulatory_Elements ( ---------------------
+CREATE TABLE Cis_Regulatory_Elements ( 
     cid INT not null auto_increment,
     cdid INT not null,
     cell_id INT not null,
@@ -60,7 +60,7 @@ CREATE TABLE Transcription_Factors (
     name VARCHAR(50),
     Primary key (tfid));
 
-CREATE TABLE CRE_Gene_Interactions ( -- many to many  -------------------------------
+CREATE TABLE CRE_Gene_Interactions ( -- many to many  
     cid INT not null,
     gid INT not null,
     distance_to_TSS INT,
@@ -84,11 +84,9 @@ CREATE TABLE Biological_Pathways (
 	name VARCHAR(100),
     Primary key (pid));
 
-CREATE TABLE Gene_Pathway_Associations ( --------------------------
+CREATE TABLE Gene_Pathway_Associations ( 
     gid INT not null,
     pid INT not null,
-    padj FLOAT, 
-    NES FLOAT,
     FOREIGN KEY (gid) REFERENCES Genes(gid), -- merge based on entrez
     FOREIGN KEY (pid) REFERENCES Biological_Pathways(pid), -- merge based on pathway name 
     Primary key (gid, pid));
