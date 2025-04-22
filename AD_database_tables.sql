@@ -45,8 +45,8 @@ CREATE TABLE Differential_Expression (
     cell_id INT not null,
     baseMean FLOAT,
     log2foldchange FLOAT,
-    p_value FLOAT,
-    padj FLOAT,
+    p_value DOUBLE,
+    padj DOUBLE,
     FOREIGN KEY (gid) REFERENCES Genes(gid), -- merge based on entrez symbol
     FOREIGN KEY (cdid) REFERENCES Conditions(cdid), -- merge based on condition name
     Foreign key (cell_id) references Cell_Type (cell_id), -- merge based on cell type
@@ -101,12 +101,12 @@ CREATE TABLE TF_CRE_Interactions ( -- quartnery relationship
 
 CREATE TABLE Biological_Pathways (
     pid INT not null auto_increment,
-	name VARCHAR(100) not null unique,
+	name VARCHAR(500) not null unique,
     Primary key (pid));
 
 CREATE TABLE Gene_Pathway_Associations ( 
     gid INT not null,
-    pid INT not null,
+    pid INT not null,   
     FOREIGN KEY (gid) REFERENCES Genes(gid), -- merge based on entrez
     FOREIGN KEY (pid) REFERENCES Biological_Pathways(pid), -- merge based on pathway name 
     Primary key (gid, pid));
