@@ -5,19 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Guide - Genomic Interactions Database</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <nav class="navbar">
-        <a href="base.html" class="logo">
+        <a href="{{ url_for('index') }}" class="logo">
             <i class="fas fa-dna"></i>
             GeneInteract
         </a>
         <div class="nav-links">
-            <a href="base.html#home">Home</a>
-            <a href="search.html">Search</a>
-            <a href="guide.html">Guide</a>
-            <a href="faq.html">FAQ</a>
+            <a href="{{ url_for('index') }}">Home</a>
+            <a href="{{ url_for('search_page') }}">Search</a>
+            <a href="{{ url_for('guide') }}" class="active">Guide</a>
+            <a href="{{ url_for('downloads') }}">Downloads</a>
         </div>
     </nav>
 
@@ -71,10 +71,6 @@ WHERE g.gene_symbol = 'TREM2'</code></pre>
             </div>
         </section>
     </div>
-
-    <footer class="footer">
-        <!-- Same footer as base.html -->
-    </footer>
 
     <script>
         function toggleAccordion(id, header) {

@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search - Genomic Interactions Database</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="{{ url_for('index') }}" class="logo">
+            <i class="fas fa-dna"></i>
+            GeneInteract
+        </a>
+        <div class="nav-links">
+            <a href="{{ url_for('index') }}">Home</a>
+            <a href="{{ url_for('search_page') }}">Search</a>
+            <a href="{{ url_for('guide') }}">Help</a>
+            <a href="{{ url_for('downloads') }}">Downloads</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <section class="card">
+            <form id="main-search-form" action="{{ url_for('search') }}" method="POST">
+                <h2>Search Database</h2>
+                
+                {% if error %}
+                <div class="error-message">
+                    <p>{{ error }}</p>
+                </div>
+                {% endif %}
+                
+                <div class="search-info">
+                    <i class="fas fa-info-circle"></i>
+                    <p>First select condition and cell type, then choose search parameters</p>
+                </div>
+
+                <!-- Condition/Cell Type  -->
+                <div class="form-section">
+                    <h3 class="form-section-title">Select Study Parameters</h3>
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label>Select Condition</label>
+                            <select id="condition" name="condition" required>
+                                <option value="">Select condition</option>
+                                <option value="IFN" {% if condition == 'IFN' %}selected{% endif %}>IFN</option>
+                                <option value="TREM2R47H" {% if condition == 'TREM2R47H' %}selected{% endif %}>TREM2R47H</option>
+                                <option value="TREM2KO" {% if condition == 'TREM2KO' %}selected{% endif %}>TREM2KO</option>
+                                <option value="xenot7d" {% if condition == 'xenot7d' %}selected{% endif %}>Xenotransplantation 7 days</option>
+                                <option value="coculture" {% if condition == 'coculture' %}selected{% endif %}>Coculture</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Cell Type</label>
+                            <select id="cell_type" name="cell_type" required>
+                                <option value="">Select cell type</option>
+                                <option value="iPSC" {% if cell_type == 'iPSC' %}selected{% endif %}>iPSC Microglia</option>
+                                <option value="ESC" {% if cell_type == 'ESC' %}selected{% endif %}>ESC Microglia</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabs -->
+                <div class="tab-container">
+                    <button type="button" class="tab {% if active_tab == 'gene' %}active{% endif %}" onclick="switchTab('gene')" id="geneTab">Gene</button>
+                    <button type="button" class="tab {% if active_tab == 'cre' %}active{% endif %}" onclick="switchTab('cre')" id="creTab">CRE</button>
+                    <button type="button" class="tab {% if active_tab == 'tf' %}active{% endif %}" onclick="switchTab('tf')" id="tfTab">Transcription Factor</button>
+                </div>
+                
+                <!-- Hidden field to track active tab -->
+                <input type="hidden" name="active_tab" id="active_tab" value="{{ active_tab|default('gene') }}">
+
+                <!-- Gene Tab -->
+                <div id="gene" class="tab-content {% if active_tab == 'gene' %}active{% endif %}">
+                    <div class="form-section">
+                        <h3 class="form-section-title">Gene Search Parameters</h3>
+                        <div class="form-group">
+                            <label>Include related genomic elements?</label>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="include-related-gene" name="include-related-gene">
+                                <label for="include-related-gene">Include associated CREs and Transcription Factors</label>
+                            </div>
+                        </div>
+                        
+                        <!-- Gene -->
+                        <div class="grid-2">
+                            <div class="form-group">
+                                <label>Identifier Type</label>
+                                <select id="gene-id-type" name="gene-id-type">
+                                    <option value="hgnc">Gene Symbol</option>
+                                    <option value="entrez">Entrez ID</option>
+                                    <option value="ensembl">Ensembl ID</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Gene Identifier</label>
+                                <input type="text" id="gene-identifier" name="gene-identifier" placeholder="Enter identifier">
+                            </div>
+                        </div>
+
+                        <!-- Entries -->
+                        <div class="grid-2">
+                            <div class="form-group">
+                                <label>Chromosome</label>
+                                <input type="text" id="gene-chr" name="gene-chr" placeholder="Enter chromosome">
+                            </div>
+                            <div class="form-group">
+                                <label>Start Position</label>
+                                <input type="number" id="gene-start" name="gene-start" placeholder="Start position">
+                            </div>
+                            <div class="form-group">
+                                <label>End Position</label>
+                                <input type="number" id="gene-end" name="gene-end" placeholder="End position">
+                            </div>
+                            <div class="form-group">
+                                <label>Biological Pathway</label>
+                                <input type="text" id="gene-pathway" name="gene-pathway" placeholder="Enter pathway">
+                            </div>
+                        </div>
+
+                        <!-- Output Fields -->
+                        <div class="form-section">
+                            <h4 class="form-section-title">Include in Results:</h4>
+                            <div class="checkbox-group">
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="select-all-fields" name="select-all-fields">
+                                    <label for="select-all-fields">Select All</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="output-hgnc" name="output-fields" value="hgnc">
+                                    <label for="output-hgnc">Gene Symbol</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="output-entrez" name="output-fields" value="entrez">
+                                    <label for="output-entrez">Entrez ID</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="output-ensembl" name="output-fields" value="ensembl">
+                                    <label for="output-ensembl">Ensembl ID</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="output-gene-chr" name="output-fields" value="chr">
+                                    <label for="output-gene-chr">Chromosome</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="output-gene-start" name="output-fields" value="start">
+                                    <label for="output-gene-start">Start Position</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="output-gene-end" name="output-fields" value="end">
+                                    <label for="output-gene-end">End Position</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="output-gene-strand" name="output-fields" value="strand">
+                                    <label for="output-gene-strand">Strand</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="output-gene-pathway" name="output-fields" value="pathway">
+                                    <label for="output-gene-pathway">Biological Pathway</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Differential Expression -->
+                        <div class="form-section">
+                            <h3 class="form-section-title">Differential Expression Parameters</h3>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="include_de" name="include_de">
+                                <label for="include_de">Include Differential Expression Data</label>
+                            </div>
+                        
+                            <div id="de-options" class="hidden">
+                                <div class="accordion">
+                                    <div class="accordion-header" onclick="toggleAccordion('de-attributes', this)">
+                                        <span>DE Attributes to Include</span>
+                                        <i class="fas fa-chevron-down transition-transform"></i>
+                                    </div>
+                                    <div id="de-attributes" class="accordion-content">
+                                        <div class="checkbox-group">
+                                            <div class="checkbox-item">
+                                                <input type="checkbox" id="de-select-all" name="de_select_all">
+                                                <label for="de-select-all">Select All</label>
+                                            </div>
+                                            <div class="checkbox-item">
+                                                <input type="checkbox" id="de-baseMean" name="de_fields" value="baseMean">
+                                                <label for="de-baseMean">Base Mean</label>
+                                            </div>
+                                            <div class="checkbox-item">
+                                                <input type="checkbox" id="de-log2fc" name="de_fields" value="log2foldchange">
+                                                <label for="de-log2fc">Log2 Fold Change</label>
+                                            </div>
+                                            <div class="checkbox-item">
+                                                <input type="checkbox" id="de-pvalue" name="de_fields" value="p_value">
+                                                <label for="de-pvalue">P-value</label>
+                                            </div>
+                                            <div class="checkbox-item">
+                                                <input type="checkbox" id="de-padj" name="de_fields" value="padj">
+                                                <label for="de-padj">Adjusted P-value</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                        
+                                <div class="accordion">
+                                    <div class="accordion-header" onclick="toggleAccordion('de-filters', this)">
+                                        <span>DE Filters</span>
+                                        <i class="fas fa-chevron-down transition-transform"></i>
+                                    </div>
+                                    <div id="de-filters" class="accordion-content">
+                                        <div class="filter-item">
+                                            <label>Adjusted P-Value &lt;</label>
+                                            <input type="number" step="0.0001" name="padj_filter" placeholder="0.05">
+                                        </div>
+                                        <div class="filter-item">
+                                            <label>Log2FC &gt;</label>
+                                            <input type="number" step="0.1" name="logfc_filter" placeholder="1.0">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CRE Tab -->
+                <div id="cre" class="tab-content {% if active_tab == 'cre' %}active{% endif %}">
+                    <div class="form-section">
+                        <h3 class="form-section-title">CRE Search Parameters</h3>
+                        <div class="form-group">
+                            <label>Include all related Genes/TFs?</label>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="include-related-cre" name="include-related-cre">
+                                <label for="include-related-cre">Include associated Genes and Transcription Factors</label>
+                            </div>
+                        </div>
+
+                        <div class="grid-2">
+                            <div class="form-group">
+                                <label>Chromosome</label>
+                                <input type="text" id="cre-chr" name="cre-chr" placeholder="Enter chromosome">
+                            </div>
+                            <div class="form-group">
+                                <label>Start Position</label>
+                                <input type="number" id="cre-start" name="cre-start" placeholder="Start position">
+                            </div>
+                            <div class="form-group">
+                                <label>End Position</label>
+                                <input type="number" id="cre-end" name="cre-end" placeholder="End position">
+                            </div>
+                            <div class="form-group">
+                                <label>Minimum Log2 Fold Change</label>
+                                <input type="number" step="0.1" id="cre-log2fc" name="cre-log2fc" placeholder="Enter minimum absolute Log2FC">
+                            </div>
+                        </div>
+
+                        <!-- CRE Output Fields -->
+                        <div class="form-section">
+                            <h4 class="form-section-title">Include in Results:</h4>
+                            <div class="checkbox-group">
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="cre-select-all" name="cre-select-all">
+                                    <label for="cre-select-all">Select All</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="cre-output-chr" name="cre-output-fields" value="chr">
+                                    <label for="cre-output-chr">Chromosome</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="cre-output-start" name="cre-output-fields" value="start">
+                                    <label for="cre-output-start">Start Position</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="cre-output-end" name="cre-output-fields" value="end">
+                                    <label for="cre-output-end">End Position</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="cre-output-log2fc" name="cre-output-fields" value="log2fc">
+                                    <label for="cre-output-log2fc">Log2 Fold Change</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="cre-output-padj" name="cre-output-fields" value="padj">
+                                    <label for="cre-output-padj">Adjusted P-value</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="cre-output-activity" name="cre-output-fields" value="activity">
+                                    <label for="cre-output-activity">CRE Activity</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TF Tab -->
+                <div id="tf" class="tab-content {% if active_tab == 'tf' %}active{% endif %}">
+                    <div class="form-section">
+                        <h3 class="form-section-title">Transcription Factor Search Parameters</h3>
+                        <div class="form-group">
+                            <label>Include all related Genes/CREs?</label>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="include-related-tf" name="include-related-tf">
+                                <label for="include-related-tf">Include associated Genes and CREs</label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Transcription Factor Name</label>
+                            <input type="text" id="tf-name" name="tf-name" placeholder="Enter TF name (e.g., STAT1)">
+                        </div>
+
+                        <!-- Additional TF filters could be added here in the future -->
+                    </div>
+                </div>
+
+                <!-- Save Options and Submit Buttons -->
+                <div class="form-section">
+                    <h3 class="form-section-title">Result Options</h3>
+                    <div class="radio-group">
+                        <div class="radio-item">
+                            <input type="radio" id="save-view" name="save_option" value="view" checked>
+                            <label for="save-view">View results only</label>
+                        </div>
+                        <div class="radio-item">
+                            <input type="radio" id="save-save" name="save_option" value="save">
+                            <label for="save-save">Save results to download manager</label>
+                        </div>
+                        <div class="radio-item">
+                            <input type="radio" id="save-both" name="save_option" value="both">
+                            <label for="save-both">View and save results</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Submit and Reset Buttons -->
+                <div class="search-actions">
+                    <button type="reset" class="button" style="background-color: #6c757d;">
+                        <i class="fas fa-undo"></i> Reset
+                    </button>
+                    <button type="submit" class="button">
+                        <i class="fas fa-search"></i> Search
+                    </button>
+                </div>
+            </form>
+        </section>
+        
+        <!-- Results Section - This will be populated by the backend -->
+        {% if table_html is not none %}
+            <section class="card">
+                {{ table_html|safe }}
+                
+                {% if active_tab == 'gene' or active_tab == 'cre' or active_tab == 'tf' %}
+                <div class="export-options">
+                    {% if result_id %}
+                    <form action="{{ url_for('save_current_result', result_id=result_id) }}" method="POST" class="inline-form">
+                        <input type="hidden" name="search_type" value="{{ active_tab }}">
+                        <input type="hidden" name="condition" value="{{ condition }}">
+                        <input type="hidden" name="cell_type" value="{{ cell_type }}">
+                        <button type="submit" class="button">
+                            <i class="fas fa-save"></i> Save to Downloads
+                        </button>
+                    </form>
+                    {% endif %}
+                    <button class="button" onclick="exportTableToCSV()">
+                        <i class="fas fa-download"></i> Export to CSV
+                    </button>
+                    <a href="{{ url_for('downloads') }}" class="button" style="background-color: #6c757d;">
+                        <i class="fas fa-list"></i> View All Downloads
+                    </a>
+                </div>
+                {% endif %}
+            </section>
+        {% endif %}
+    </div>
+
+    <script>
+        // Function to switch between tabs
+        function switchTab(tabId) {
+            // Hide all tab contents
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(tab => tab.classList.remove('active'));
+            
+            // Deactivate all tabs
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Activate the selected tab and its content
+            document.getElementById(tabId).classList.add('active');
+            document.getElementById(tabId + 'Tab').classList.add('active');
+            
+            // Update the hidden field
+            document.getElementById('active_tab').value = tabId;
+        }
+        
+        // Function to toggle accordions
+        function toggleAccordion(id, element) {
+            const content = document.getElementById(id);
+            content.classList.toggle('active');
+            element.querySelector('i').classList.toggle('rotate-180');
+        }
+        
+        // Function to toggle DE options visibility
+        document.getElementById('include_de').addEventListener('change', function() {
+            const deOptions = document.getElementById('de-options');
+            if (this.checked) {
+                deOptions.classList.remove('hidden');
+            } else {
+                deOptions.classList.add('hidden');
+            }
+        });
+        
+        // Handle select all checkboxes in gene tab
+        document.getElementById('select-all-fields').addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('input[name="output-fields"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+        });
+        
+        // Handle select all checkboxes in DE section
+        document.getElementById('de-select-all').addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('input[name="de_fields"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+        });
+        
+        // Handle select all checkboxes in CRE tab
+        document.getElementById('cre-select-all').addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('input[name="cre-output-fields"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+        });
+        
+        // Export table to CSV function
+        function exportTableToCSV() {
+            const table = document.querySelector('.table-container table');
+            if (!table) return;
+            
+            let csv = [];
+            const rows = table.querySelectorAll('tr');
+            
+            for (let i = 0; i < rows.length; i++) {
+                const row = [], cols = rows[i].querySelectorAll('td, th');
+                
+                for (let j = 0; j < cols.length; j++) {
+                    // Handle commas and quotes in the cell text
+                    let cellText = cols[j].innerText;
+                    cellText = cellText.replace(/"/g, '""'); // Replace quotes with double quotes
+                    
+                    // Wrap cell in quotes if it contains commas or quotes
+                    if (cellText.includes(',') || cellText.includes('"')) {
+                        cellText = `"${cellText}"`;
+                    }
+                    
+                    row.push(cellText);
+                }
+                
+                csv.push(row.join(','));
+            }
+            
+            // Download CSV file
+            const csvContent = csv.join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'genomic_data_export.csv');
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        // Initialize the form state
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if DE checkbox should be shown
+            const includeDE = document.getElementById('include_de');
+            if (includeDE && includeDE.checked) {
+                document.getElementById('de-options').classList.remove('hidden');
+            }
+            
+            // If there are any selected DE fields, show DE options
+            const deFields = document.querySelectorAll('input[name="de_fields"]:checked');
+            if (deFields.length > 0) {
+                document.getElementById('include_de').checked = true;
+                document.getElementById('de-options').classList.remove('hidden');
+            }
+            
+            // Check checkbox status when form is loaded
+            const updateSelectAllStatus = (selectAllId, checkboxSelector) => {
+                const selectAll = document.getElementById(selectAllId);
+                const checkboxes = document.querySelectorAll(checkboxSelector);
+                const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+                const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
+                
+                selectAll.checked = allChecked;
+                selectAll.indeterminate = anyChecked && !allChecked;
+            };
+            
+            // Initialize all select-all checkbox states
+            updateSelectAllStatus('select-all-fields', 'input[name="output-fields"]');
+            updateSelectAllStatus('de-select-all', 'input[name="de_fields"]');
+            updateSelectAllStatus('cre-select-all', 'input[name="cre-output-fields"]');
+            
+            // Also update select-all status when individual checkboxes change
+            document.querySelectorAll('input[name="output-fields"]').forEach(checkbox => {
+                checkbox.addEventListener('change', () => {
+                    updateSelectAllStatus('select-all-fields', 'input[name="output-fields"]');
+                });
+            });
+            
+            document.querySelectorAll('input[name="de_fields"]').forEach(checkbox => {
+                checkbox.addEventListener('change', () => {
+                    updateSelectAllStatus('de-select-all', 'input[name="de_fields"]');
+                });
+            });
+            
+            document.querySelectorAll('input[name="cre-output-fields"]').forEach(checkbox => {
+                checkbox.addEventListener('change', () => {
+                    updateSelectAllStatus('cre-select-all', 'input[name="cre-output-fields"]');
+                });
+            });
+        });
+    </script>
+</body>
+</html>
