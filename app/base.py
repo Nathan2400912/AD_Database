@@ -28,8 +28,8 @@ if not os.path.exists(SAVE_DIR):
 # In production, this would be in a database
 saved_files = {}
 
-def connect_database(hostname='localhost', port=3306, database='geneinteract', 
-                    username='geneuser', password='password'):
+def connect_database(hostname='bioed-new.bu.edu', port=4253, database='Team7', 
+                    username='', password=''):
     """Connect to the MariaDB database."""
     try:
         connection = mariadb.connect(
@@ -44,34 +44,33 @@ def connect_database(hostname='localhost', port=3306, database='geneinteract',
     except mariadb.Error as e:
         return None, str(e)
 
-def execute_gene_query(cursor, condition_name, cell_type, gene_params, output_fields, include_de=False, de_params=None, include_related=False):
-    """Execute gene-related query based on parameters."""
+def execute_query(cursor, condition_name, cell_type, gene_params, 
+                  output_fields, cre_fields, tf_fields, include_de=False, 
+                  de_params=None, cre_params=None, tf_params=None):
+    """Execute queries based on parameters."""
     # Build the base query
     query_parts = ["SELECT"]
     select_fields = []
     
     # Add requested gene fields
-    for field in output_fields:
-        if field == 'hgnc':
-            select_fields.append("g.gene_symbol as hgnc_symbol")
-        elif field == 'entrez':
-            select_fields.append("g.Entrez_ID as entrez_id")
-        elif field == 'ensembl':
-            select_fields.append("g.Ensembl_ID as ensembl_id")
-        elif field == 'chr':
-            select_fields.append("g.chromosome")
-        elif field == 'start':
-            select_fields.append("g.start_position")
-        elif field == 'end':
-            select_fields.append("g.end_position")
-        elif field == 'strand':
-            select_fields.append("g.strand")
-        elif field == 'pathway':
-            select_fields.append("GROUP_CONCAT(DISTINCT bp.name SEPARATOR ', ') as pathway")
-    
-    # If no fields selected, select default fields
-    if not select_fields:
-        select_fields = ["g.gene_symbol as hgnc_symbol", "g.Entrez_ID as entrez_id", "g.chromosome", "g.start_position", "g.end_position"]
+    if len(output_fields) > 0:
+        for field in output_fields:
+            if field == 'hgnc':
+                select_fields.append("g.gene_symbol as hgnc_symbol")
+            elif field == 'entrez':
+                select_fields.append("g.Entrez_ID as entrez_id")
+            elif field == 'ensembl':
+                select_fields.append("g.Ensembl_ID as ensembl_id")
+            elif field == 'chr':
+                select_fields.append("g.chromosome")
+            elif field == 'start':
+                select_fields.append("g.start_position")
+            elif field == 'end':
+                select_fields.append("g.end_position")
+            elif field == 'strand':
+                select_fields.append("g.strand")
+            elif field == 'pathway':
+                select_fields.append("bp.name as pathway")
     
     # Add DE fields if requested
     if include_de and de_params:
@@ -80,76 +79,110 @@ def execute_gene_query(cursor, condition_name, cell_type, gene_params, output_fi
             select_fields.append(f"de.{field}")
     
     # Add related CRE info if requested
-    if include_related:
-        select_fields.append("GROUP_CONCAT(DISTINCT CONCAT(cre.chromosome, ':', cre.start_position, '-', cre.end_position) SEPARATOR '; ') as associated_cres")
-        select_fields.append("GROUP_CONCAT(DISTINCT tf.name SEPARATOR ', ') as associated_tfs")
+    if len(cre_fields) > 0:
+        for field in cre_fields:
+            if field == 'cre_chr':
+                select_fields.append("cre.chromosome as cre_chr")
+            elif field == 'cre_start':
+                select_fields.append("cre.start_position as cre_start")
+            elif field == 'cre_end':
+                select_fields.append("cre.end_position as cre_end")
+            elif field == 'cre_log2fc':
+                select_fields.append("cre.cre_log2foldchange as cre_log2fc")
+            elif field == 'cre_padj':
+                select_fields.append("cre.padj as cre_padj")
+            elif field == 'cre_distance':
+                select_fields.append("cgi.distance_to_TSS as cre_distance")
     
-    query_parts.append(", ".join(select_fields))
+    if len(tf_fields) > 0:
+        for field in tf_fields:
+            if field == 'tf_checkbox':
+                select_fields.append("tf.name as tf")            
+
+                
+    # Base cases
+    if not select_fields and len(output_fields) > 0: 
+        select_fields = ["g.gene_symbol as hgnc_symbol", "g.Entrez_ID as entrez_id", "g.chromosome", "g.start_position", "g.end_position"]
+    elif not select_fields and len(output_fields) == 0 and len(cre_fields) > 0:
+        select_fields = ["cre.chromosome as cre_chr", "cre.start_position as cre_start", "cre.end_position as cre_end", "cre.cre_log2foldchange as cre_log2fc"]
+    elif not select_fields and len(output_fields) == 0 and len(cre_fields) == 0 and len(tf_fields) > 0:
+        select_fields = ["tf.name as tf"]
+    elif not select_fields and len(output_fields) == 0 and len(cre_fields) == 0 and len(tf_fields) == 0:
+        select_fields = ["c.name as condition_name", "ct.cell as cell_type"]
     
-    # Get condition and cell_type IDs
+    query_parts.append(", ".join(select_fields))   
+    
+    # Basic gene query 
     query_parts.append("""
     FROM Genes g
-    JOIN Conditions c ON c.name = %s
-    JOIN Cell_Type ct ON ct.cell = %s
-    """)
-    
-    params = [condition_name, cell_type]
-    
-    # Add DE join if requested
-    if include_de or include_related:
-        query_parts.append("""
-        LEFT JOIN Differential_Expression de ON g.gid = de.gid AND de.cdid = c.cdid AND de.cell_id = ct.cell_id
-        """)
-    
-    # Add related CRE and TF info if requested
-    if include_related:
-        query_parts.append("""
-        LEFT JOIN CRE_Gene_Interactions cgi ON g.gid = cgi.gid
-        LEFT JOIN Cis_Regulatory_Elements cre ON cgi.cid = cre.cid AND cre.cdid = c.cdid AND cre.cell_id = ct.cell_id
-        LEFT JOIN TF_CRE_Interactions tci ON cre.mcid = tci.mcid AND tci.cdid = c.cdid AND tci.cell_id = ct.cell_id
-        LEFT JOIN Transcription_Factors tf ON tci.tfid = tf.tfid
-        """)
-    
-    # Add pathway join
-    query_parts.append("""
+    LEFT JOIN Differential_Expression de ON g.gid = de.gid
+    JOIN Conditions c ON de.cdid = c.cdid AND c.name = %s
+    JOIN Cell_Type ct ON de.cell_id = ct.cell_id AND ct.cell = %s
     LEFT JOIN Gene_Pathway_Associations gpa ON g.gid = gpa.gid
     LEFT JOIN Biological_Pathways bp ON gpa.pid = bp.pid
     """)
     
+    # Add related CRE info 
+    if len(cre_fields) > 0 or len(cre_params) > 0:
+        query_parts.append("""
+        LEFT JOIN CRE_Gene_Interactions cgi ON g.gid = cgi.gid
+        LEFT JOIN Cis_Regulatory_Elements cre ON cgi.cid = cre.cid AND cre.cdid = c.cdid AND cre.cell_id = ct.cell_id
+        """)
+        
+    # safeguard
+    if (len(tf_fields)+len(tf_params)) > 0 and (len(cre_fields)+len(cre_params)) == 0:
+        if not cre_fields or len(cre_fields) == 0:
+            cre_fields = ["cre_chr", "cre_start", "cre_end"]
+        if not cre_params:
+            cre_params = {}
+        
+    # include tfs
+    if len(tf_fields) > 0 or len(tf_params) > 0:
+        query_parts.append("""
+        LEFT JOIN Merged_CRES mc ON cre.mcid = mc.mcid
+        LEFT JOIN TF_CRE_Interactions tci ON mc.mcid = tci.mcid AND tci.cdid = c.cdid AND tci.cell_id = ct.cell_id
+        LEFT JOIN Transcription_Factors tf ON tci.tfid = tf.tfid
+        """)
+    
+    
+    params = [condition_name, cell_type]
     # Add WHERE clause
     query_parts.append("WHERE 1=1")
     
     # Add gene-specific filters
-    if gene_params.get('gene-id-type') and gene_params.get('gene-identifier'):
-        id_type = gene_params.get('gene-id-type')
-        identifier = gene_params.get('gene-identifier')
-        if id_type == 'hgnc':
-            query_parts.append("AND g.gene_symbol = %s")
-            params.append(identifier)
-        elif id_type == 'entrez':
-            query_parts.append("AND g.Entrez_ID = %s")
-            params.append(identifier)
-        elif id_type == 'ensembl':
-            query_parts.append("AND g.Ensembl_ID = %s")
-            params.append(identifier)
-    
+    if len(gene_params) > 0:
+        if gene_params.get('gene-id-type') and gene_params.get('gene-identifier'):
+            id_type = gene_params.get('gene-id-type')
+            identifier = gene_params.get('gene-identifier')
+            if id_type == 'hgnc':
+                query_parts.append("AND g.gene_symbol = %s")
+                params.append(identifier)
+            elif id_type == 'entrez':
+                query_parts.append("AND g.Entrez_ID = %s")
+                params.append(identifier)
+            elif id_type == 'ensembl':
+                query_parts.append("AND g.Ensembl_ID = %s")
+                params.append(identifier)
+
     # Add chromosome, position, and pathway filters if provided
-    if gene_params.get('gene-chr'):
-        query_parts.append("AND g.chromosome = %s")
-        params.append(gene_params.get('gene-chr'))
-    
-    if gene_params.get('gene-start'):
-        query_parts.append("AND g.start_position >= %s")
-        params.append(int(gene_params.get('gene-start')))
-    
-    if gene_params.get('gene-end'):
-        query_parts.append("AND g.end_position <= %s")
-        params.append(int(gene_params.get('gene-end')))
-    
-    if gene_params.get('gene-pathway'):
-        query_parts.append("AND bp.name LIKE %s")
-        params.append(f"%{gene_params.get('gene-pathway')}%")
-    
+    if len(gene_params) > 0:
+        if gene_params.get('gene-chr'):
+            query_parts.append("AND g.chromosome = %s")
+            params.append(gene_params.get('gene-chr'))
+        
+        if gene_params.get('gene-start'):
+            query_parts.append("AND g.start_position >= %s")
+            params.append(int(gene_params.get('gene-start')))
+        
+        if gene_params.get('gene-end'):
+            query_parts.append("AND g.end_position <= %s")
+            params.append(int(gene_params.get('gene-end')))
+        
+        if gene_params.get('gene-pathway'):
+            pathway_input = gene_params.get('gene-pathway').upper()
+            query_parts.append("AND bp.name LIKE %s")
+            params.append(f"%{pathway_input}%")
+
     # Add DE filters if requested
     if include_de and de_params:
         if de_params.get('padj_filter'):
@@ -159,98 +192,31 @@ def execute_gene_query(cursor, condition_name, cell_type, gene_params, output_fi
         if de_params.get('logfc_filter'):
             query_parts.append("AND abs(de.log2foldchange) > %s")
             params.append(float(de_params.get('logfc_filter')))
-    
-    # Add GROUP BY clause for proper aggregation
-    query_parts.append("GROUP BY g.gid")
-    
-    # Combine all parts into a single query
-    query = " ".join(query_parts)
-    
-    # Execute the query
-    try:
-        cursor.execute(query, params)
-        results = cursor.fetchall()
-        # Convert results to list of dictionaries with column names
-        column_names = [desc[0] for desc in cursor.description]
-        result_dicts = [dict(zip(column_names, row)) for row in results]
-        return result_dicts, None
-    except mariadb.Error as e:
-        return None, f"Database query error: {str(e)}\nQuery: {query}\nParams: {params}"
-
-def execute_cre_query(cursor, condition_name, cell_type, cre_params, output_fields, include_related=False):
-    """Execute CRE-related query based on parameters."""
-    # Build the base query
-    query_parts = ["SELECT"]
-    select_fields = []
-    
-    # Add requested CRE fields
-    for field in output_fields:
-        if field == 'chr':
-            select_fields.append("cre.chromosome")
-        elif field == 'start':
-            select_fields.append("cre.start_position")
-        elif field == 'end':
-            select_fields.append("cre.end_position")
-        elif field == 'log2fc':
-            select_fields.append("cre.cre_log2foldchange")
-        elif field == 'padj':
-            select_fields.append("cre.padj")
-        elif field == 'activity':
-            select_fields.append("cre.activity_score")
-    
-    # If no fields selected, select default fields
-    if not select_fields:
-        select_fields = ["cre.chromosome", "cre.start_position", "cre.end_position", "cre.cre_log2foldchange"]
-    
-    # Add related gene and TF info if requested
-    if include_related:
-        select_fields.append("GROUP_CONCAT(DISTINCT g.gene_symbol SEPARATOR ', ') as associated_genes")
-        select_fields.append("GROUP_CONCAT(DISTINCT tf.name SEPARATOR ', ') as associated_tfs")
-        select_fields.append("GROUP_CONCAT(DISTINCT CONCAT(g.gene_symbol, ' (', cgi.distance_to_TSS, 'bp)') SEPARATOR '; ') as gene_distances")
-    
-    query_parts.append(", ".join(select_fields))
-    
-    # Get condition and cell_type IDs
-    query_parts.append("""
-    FROM Cis_Regulatory_Elements cre
-    JOIN Conditions c ON c.name = %s
-    JOIN Cell_Type ct ON ct.cell = %s
-    """)
-    
-    params = [condition_name, cell_type]
-    
-    # Add related gene and TF info if requested
-    if include_related:
-        query_parts.append("""
-        LEFT JOIN CRE_Gene_Interactions cgi ON cre.cid = cgi.cid
-        LEFT JOIN Genes g ON cgi.gid = g.gid
-        LEFT JOIN TF_CRE_Interactions tci ON cre.mcid = tci.mcid AND tci.cdid = c.cdid AND tci.cell_id = ct.cell_id
-        LEFT JOIN Transcription_Factors tf ON tci.tfid = tf.tfid
-        """)
-    
-    # Add WHERE clause for condition and cell_type
-    query_parts.append("WHERE cre.cdid = c.cdid AND cre.cell_id = ct.cell_id")
-    
-    # Add CRE-specific filters
-    if cre_params.get('cre-chr'):
-        query_parts.append("AND cre.chromosome = %s")
-        params.append(cre_params.get('cre-chr'))
-    
-    if cre_params.get('cre-start'):
-        query_parts.append("AND cre.start_position >= %s")
-        params.append(int(cre_params.get('cre-start')))
-    
-    if cre_params.get('cre-end'):
-        query_parts.append("AND cre.end_position <= %s")
-        params.append(int(cre_params.get('cre-end')))
-    
-    if cre_params.get('cre-log2fc'):
-        query_parts.append("AND abs(cre.cre_log2foldchange) > %s")
-        params.append(float(cre_params.get('cre-log2fc')))
-    
-    # Add GROUP BY clause for proper aggregation if using related data
-    if include_related:
-        query_parts.append("GROUP BY cre.cid")
+            
+    if len(cre_params) > 0:
+        # Add CRE-specific filters
+        if cre_params.get('cre-chr'):
+            query_parts.append("AND cre.chromosome = %s")
+            params.append(cre_params.get('cre-chr'))
+        
+        if cre_params.get('cre-start'):
+            query_parts.append("AND cre.start_position >= %s")
+            params.append(int(cre_params.get('cre-start')))
+        
+        if cre_params.get('cre-end'):
+            query_parts.append("AND cre.end_position <= %s")
+            params.append(int(cre_params.get('cre-end')))
+        
+        if cre_params.get('cre-log2fc'):
+            query_parts.append("AND abs(cre.cre_log2foldchange) > %s")
+            params.append(float(cre_params.get('cre-log2fc')))
+            
+    if len(tf_params) > 0:
+        # Add TF-specific filters
+        if tf_params.get('tf-name'):
+            query_parts.append("AND tf.name = %s")
+            params.append(tf_params.get('tf-name'))
+        
     
     # Combine all parts into a single query
     query = " ".join(query_parts)
@@ -266,78 +232,31 @@ def execute_cre_query(cursor, condition_name, cell_type, cre_params, output_fiel
     except mariadb.Error as e:
         return None, f"Database query error: {str(e)}\nQuery: {query}\nParams: {params}"
 
-def execute_tf_query(cursor, condition_name, cell_type, tf_params, include_related=False):
-    """Execute TF-related query based on parameters."""
-    # Build the base query
-    query_parts = ["SELECT tf.name as tf_name"]
-    
-    # Add count of binding sites and related info if requested
-    if include_related:
-        query_parts.append(", COUNT(DISTINCT tci.mcid) as binding_sites_count")
-        query_parts.append(", GROUP_CONCAT(DISTINCT CONCAT(cre.chromosome, ':', cre.start_position, '-', cre.end_position) SEPARATOR '; ') as bound_cres")
-        query_parts.append(", GROUP_CONCAT(DISTINCT g.gene_symbol SEPARATOR ', ') as regulated_genes")
-    
-    # Join tables
-    query_parts.append("""
-    FROM Transcription_Factors tf
-    JOIN Conditions c ON c.name = %s
-    JOIN Cell_Type ct ON ct.cell = %s
-    JOIN TF_CRE_Interactions tci ON tf.tfid = tci.tfid AND tci.cdid = c.cdid AND tci.cell_id = ct.cell_id
-    """)
-    
-    params = [condition_name, cell_type]
-    
-    # Add related CRE and gene info if requested
-    if include_related:
-        query_parts.append("""
-        JOIN Cis_Regulatory_Elements cre ON tci.mcid = cre.mcid AND cre.cdid = c.cdid AND cre.cell_id = ct.cell_id
-        LEFT JOIN CRE_Gene_Interactions cgi ON cre.cid = cgi.cid
-        LEFT JOIN Genes g ON cgi.gid = g.gid
-        """)
-    
-    # Add TF name filter if provided
-    if tf_params.get('tf-name'):
-        query_parts.append("WHERE tf.name = %s")
-        params.append(tf_params.get('tf-name'))
-    else:
-        query_parts.append("WHERE 1=1")
-    
-    # Add GROUP BY clause
-    query_parts.append("GROUP BY tf.tfid")
-    
-    # Add ORDER BY binding sites count if related data is included
-    if include_related:
-        query_parts.append("ORDER BY binding_sites_count DESC")
-    
-    # Combine all parts into a single query
-    query = " ".join(query_parts)
-    
-    # Execute the query
-    try:
-        cursor.execute(query, params)
-        results = cursor.fetchall()
-        # Convert results to list of dictionaries with column names
-        column_names = [desc[0] for desc in cursor.description]
-        result_dicts = [dict(zip(column_names, row)) for row in results]
-        return result_dicts, None
-    except mariadb.Error as e:
-        return None, f"Database query error: {str(e)}\nQuery: {query}\nParams: {params}"
-
-def generate_table_html(results, headers, title=None):
+def generate_table_html(results, headers, title=None, rows_per_page=10):
     """Generate HTML table from results."""
     if not results:
         return "<p>No results found matching your criteria.</p>"
     
-    # Create HTML table
-    table_html = """
+    # Calculate total pages
+    total_records = len(results)
+    total_pages = (total_records + rows_per_page - 1) // rows_per_page  # Ceiling division
+    
+    table_id = "results-table"
+    
+    table_html = f"""
     <div class="results-section">
-        <h2>{title}</h2>
-        <p>Found {count} records matching your search criteria.</p>
+        <h2>{title or "Search Results"}</h2>
+        <p>Found {total_records} records matching your search criteria.</p>
+        <div class="pagination-controls" data-pagination="{table_id}-pagination">
+            <button class="pagination-button prev-page" disabled>Previous</button>
+            <span id="page-indicator">Page <span class="current-page">1</span> of <span class="total-pages">{total_pages}</span></span>
+            <button class="pagination-button next-page" {"disabled" if total_pages <= 1 else ""}>Next</button>
+        </div>
         <div class="table-container">
-            <table>
+            <table id="{table_id}" class="results-table">
                 <thead>
                     <tr>
-    """.format(title=title or "Search Results", count=len(results))
+    """
     
     # Add table headers
     for header in headers:
@@ -351,7 +270,7 @@ def generate_table_html(results, headers, title=None):
                 <tbody>
     """
     
-    # Add table rows
+    # Add table rows (all of them, pagination handled by JS)
     for row in results:
         table_html += "<tr>"
         for header in headers:
@@ -424,7 +343,7 @@ def get_preview(filepath, max_rows=5):
     return ", ".join([f"{headers[0]}: {row[0]}" for row in preview_rows])
 
 # Modified route: Change the index route to render base.html instead
-@app.route('/', methods=['GET'])
+@app.route('/')
 def index():
     # Render base.html as the home page
     return render_template('base.html')
@@ -432,7 +351,6 @@ def index():
 # Add a dedicated route for the search page
 @app.route('/search_page', methods=['GET'])
 def search_page():
-    # This will render the search page without executing a search
     return render_template('updated_search.html', 
                          table_html=None,
                          condition=None,
@@ -441,11 +359,7 @@ def search_page():
                          error=None,
                          result_id=None)
 
-# Add routes for all HTML pages
-@app.route('/base')
-def base():
-    return render_template('base.html')
-
+# Add routes for all other HTML pages
 @app.route('/guide')
 def guide():
     return render_template('guide.html')
@@ -504,25 +418,18 @@ def search():
         search_type = active_tab
         save_option = data.get('save_option', 'view')  # Options: view, save, both
         
-        # Execute query based on active tab
-        if active_tab == 'gene':
-            # Parse gene parameters
+        if active_tab == 'gene' or active_tab == 'cre' or active_tab == 'tf':
             gene_params = {
-                'gene-id-type': data.get('gene-id-type'),
-                'gene-identifier': data.get('gene-identifier'),
-                'gene-chr': data.get('gene-chr'),
-                'gene-start': data.get('gene-start'),
-                'gene-end': data.get('gene-end'),
-                'gene-pathway': data.get('gene-pathway')
-            }
+                    'gene-id-type': data.get('gene-id-type'),
+                    'gene-identifier': data.get('gene-identifier'),
+                    'gene-chr': data.get('gene-chr'),
+                    'gene-start': data.get('gene-start'),
+                    'gene-end': data.get('gene-end'),
+                    'gene-pathway': data.get('gene-pathway')
+                }
             
-            # Parse output fields
             output_fields = request.form.getlist('output-fields') if request.method == 'POST' else request.args.getlist('output-fields')
             
-            # Check if related data is requested
-            include_related = data.get('include-related-gene') == 'on'
-            
-            # Check if DE data is requested
             include_de = data.get('include_de') == 'on'
             de_params = None
             if include_de:
@@ -532,12 +439,27 @@ def search():
                     'logfc_filter': data.get('logfc_filter')
                 }
             
-            # Execute gene query
-            results, error = execute_gene_query(cursor, condition, cell_type, gene_params, output_fields, include_de, de_params, include_related)
+            cre_params = {
+                    'cre-chr': data.get('cre-chr'),
+                    'cre-start': data.get('cre-start'),
+                    'cre-end': data.get('cre-end'),
+                    'cre-log2fc': data.get('cre-log2fc')
+                }
             
+            cre_fields = request.form.getlist('cre-output-fields') if request.method == 'POST' else request.args.getlist('cre-output-fields')
+            
+            tf_params = {
+                    'tf-name': data.get('tf-name')  
+            }
+            
+            tf_fields = request.form.getlist('tf-checkbox') if request.method == 'POST' else request.args.getlist('tf-checkbox')
+            
+            results, error = execute_query(cursor, condition, cell_type, gene_params,
+                                        output_fields, cre_fields, tf_fields, include_de=include_de, 
+                                        de_params=de_params, cre_params=cre_params, tf_params=tf_params)
             # Build the title for results
-            title = f"Gene Search Results ({condition}, {cell_type})"
-            description = f"Gene search for {condition} in {cell_type} cells"
+            title = f"Search Results ({condition}, {cell_type})"
+            description = f"Search for {condition} in {cell_type} cells"
             if gene_params.get('gene-identifier'):
                 title += f" - {gene_params.get('gene-id-type').upper()}: {gene_params.get('gene-identifier')}"
                 description += f", {gene_params.get('gene-id-type').upper()}: {gene_params.get('gene-identifier')}"
@@ -545,71 +467,10 @@ def search():
             # Generate column headers for the result table
             if results:
                 headers = list(results[0].keys())
-                table_html = generate_table_html(results, headers, "Gene Search Results")
+                table_html = generate_table_html(results, headers, "Search Results")
             else:
                 table_html = "<p>No gene results found matching your criteria.</p>"
-        
-        elif active_tab == 'cre':
-            # Parse CRE parameters
-            cre_params = {
-                'cre-chr': data.get('cre-chr'),
-                'cre-start': data.get('cre-start'),
-                'cre-end': data.get('cre-end'),
-                'cre-log2fc': data.get('cre-log2fc')
-            }
-            
-            # Parse output fields
-            output_fields = request.form.getlist('cre-output-fields') if request.method == 'POST' else request.args.getlist('cre-output-fields')
-            
-            # Check if related data is requested
-            include_related = data.get('include-related-cre') == 'on'
-            
-            # Execute CRE query
-            results, error = execute_cre_query(cursor, condition, cell_type, cre_params, output_fields, include_related)
-            
-            # Build the title for results
-            title = f"CRE Search Results ({condition}, {cell_type})"
-            description = f"Cis-regulatory element search for {condition} in {cell_type} cells"
-            if cre_params.get('cre-chr'):
-                chrom = cre_params.get('cre-chr')
-                start = cre_params.get('cre-start', 'start')
-                end = cre_params.get('cre-end', 'end')
-                title += f" - {chrom}:{start}-{end}"
-                description += f", region {chrom}:{start}-{end}"
-            
-            # Generate column headers for the result table
-            if results:
-                headers = list(results[0].keys())
-                table_html = generate_table_html(results, headers, "CRE Search Results")
-            else:
-                table_html = "<p>No CRE results found matching your criteria.</p>"
-        
-        elif active_tab == 'tf':
-            # Parse TF parameters
-            tf_params = {
-                'tf-name': data.get('tf-name')
-            }
-            
-            # Check if related data is requested
-            include_related = data.get('include-related-tf') == 'on'
-            
-            # Execute TF query
-            results, error = execute_tf_query(cursor, condition, cell_type, tf_params, include_related)
-            
-            # Build the title for results
-            title = f"TF Search Results ({condition}, {cell_type})"
-            description = f"Transcription factor search for {condition} in {cell_type} cells"
-            if tf_params.get('tf-name'):
-                title += f" - {tf_params.get('tf-name')}"
-                description += f", factor: {tf_params.get('tf-name')}"
-            
-            # Generate column headers for the result table
-            if results:
-                headers = list(results[0].keys())
-                table_html = generate_table_html(results, headers, "Transcription Factor Search Results")
-            else:
-                table_html = "<p>No transcription factor results found matching your criteria.</p>"
-        
+                
         else:
             error = "Error: Invalid search type."
             table_html = ""

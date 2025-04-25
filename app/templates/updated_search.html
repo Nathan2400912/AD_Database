@@ -77,13 +77,6 @@
                 <div id="gene" class="tab-content {% if active_tab == 'gene' %}active{% endif %}">
                     <div class="form-section">
                         <h3 class="form-section-title">Gene Search Parameters</h3>
-                        <div class="form-group">
-                            <label>Include related genomic elements?</label>
-                            <div class="checkbox-item">
-                                <input type="checkbox" id="include-related-gene" name="include-related-gene">
-                                <label for="include-related-gene">Include associated CREs and Transcription Factors</label>
-                            </div>
-                        </div>
                         
                         <!-- Gene -->
                         <div class="grid-2">
@@ -229,13 +222,6 @@
                 <div id="cre" class="tab-content {% if active_tab == 'cre' %}active{% endif %}">
                     <div class="form-section">
                         <h3 class="form-section-title">CRE Search Parameters</h3>
-                        <div class="form-group">
-                            <label>Include all related Genes/TFs?</label>
-                            <div class="checkbox-item">
-                                <input type="checkbox" id="include-related-cre" name="include-related-cre">
-                                <label for="include-related-cre">Include associated Genes and Transcription Factors</label>
-                            </div>
-                        </div>
 
                         <div class="grid-2">
                             <div class="form-group">
@@ -265,28 +251,28 @@
                                     <label for="cre-select-all">Select All</label>
                                 </div>
                                 <div class="checkbox-item">
-                                    <input type="checkbox" id="cre-output-chr" name="cre-output-fields" value="chr">
+                                    <input type="checkbox" id="cre-output-chr" name="cre-output-fields" value="cre_chr">
                                     <label for="cre-output-chr">Chromosome</label>
                                 </div>
                                 <div class="checkbox-item">
-                                    <input type="checkbox" id="cre-output-start" name="cre-output-fields" value="start">
+                                    <input type="checkbox" id="cre-output-start" name="cre-output-fields" value="cre_start">
                                     <label for="cre-output-start">Start Position</label>
                                 </div>
                                 <div class="checkbox-item">
-                                    <input type="checkbox" id="cre-output-end" name="cre-output-fields" value="end">
+                                    <input type="checkbox" id="cre-output-end" name="cre-output-fields" value="cre_end">
                                     <label for="cre-output-end">End Position</label>
                                 </div>
                                 <div class="checkbox-item">
-                                    <input type="checkbox" id="cre-output-log2fc" name="cre-output-fields" value="log2fc">
-                                    <label for="cre-output-log2fc">Log2 Fold Change</label>
+                                    <input type="checkbox" id="cre-output-log2fc" name="cre-output-fields" value="cre_log2fc">
+                                    <label for="cre-output-log2fc"> CRE Log2 Fold Change</label>
                                 </div>
                                 <div class="checkbox-item">
-                                    <input type="checkbox" id="cre-output-padj" name="cre-output-fields" value="padj">
+                                    <input type="checkbox" id="cre-output-padj" name="cre-output-fields" value="cre_padj">
                                     <label for="cre-output-padj">Adjusted P-value</label>
                                 </div>
                                 <div class="checkbox-item">
-                                    <input type="checkbox" id="cre-output-activity" name="cre-output-fields" value="activity">
-                                    <label for="cre-output-activity">CRE Activity</label>
+                                    <input type="checkbox" id="cre-output-distance" name="cre-output-fields" value="cre_distance">
+                                    <label for="cre-output-distance">Distance to TSS</label>
                                 </div>
                             </div>
                         </div>
@@ -298,19 +284,18 @@
                     <div class="form-section">
                         <h3 class="form-section-title">Transcription Factor Search Parameters</h3>
                         <div class="form-group">
-                            <label>Include all related Genes/CREs?</label>
-                            <div class="checkbox-item">
-                                <input type="checkbox" id="include-related-tf" name="include-related-tf">
-                                <label for="include-related-tf">Include associated Genes and CREs</label>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
                             <label>Transcription Factor Name</label>
                             <input type="text" id="tf-name" name="tf-name" placeholder="Enter TF name (e.g., STAT1)">
                         </div>
-
-                        <!-- Additional TF filters could be added here in the future -->
+                        <div class="form-section">
+                            <h4 class="form-section-title">Include in Results:</h4>
+                            <div class="checkbox-group">
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="tf-output" name="tf-checkbox" value="tf_checbox">
+                                    <label for="tf-output">Transcription Factors</label>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -475,6 +460,62 @@
             link.click();
             document.body.removeChild(link);
         }
+
+        function initializeTablePagination() {
+            const tables = document.querySelectorAll('.results-table');
+            
+            tables.forEach(table => {
+                // Create unique container class for each table's controls
+                const tableContainer = table.closest('.results-section');
+                if (!tableContainer) return;
+                
+                // Find elements relative to the container
+                const tbody = table.querySelector('tbody');
+                if (!tbody) return;  // Add null check
+                
+                const rows = Array.from(tbody.querySelectorAll('tr')); // Convert to array
+                if (rows.length === 0) return;  // Handle empty tables
+                
+                const paginationId = table.id + '-pagination';
+                const controls = tableContainer.querySelector(`[data-pagination="${paginationId}"]`);
+                if (!controls) return;
+                
+                const prevButton = controls.querySelector('.prev-page');
+                const nextButton = controls.querySelector('.next-page');
+                const currentPageSpan = controls.querySelector('.current-page');
+                const totalPagesSpan = controls.querySelector('.total-pages');
+                
+                if (!prevButton || !nextButton || !currentPageSpan || !totalPagesSpan) return;
+                
+                const rowsPerPage = 10;
+                const totalRows = rows.length;
+                const totalPages = Math.ceil(totalRows / rowsPerPage);
+                
+                let currentPage = 1;
+                
+                function showPage(pageNum) {
+                    const start = (pageNum - 1) * rowsPerPage;
+                    const end = Math.min(start + rowsPerPage, totalRows);
+                    
+                    rows.forEach((row, index) => {
+                        row.style.display = (index >= start && index < end) ? '' : 'none';
+                    });
+                    
+                    currentPage = pageNum;
+                    currentPageSpan.textContent = currentPage;
+                    prevButton.disabled = currentPage === 1;
+                    nextButton.disabled = currentPage === totalPages;
+                }
+                
+                // Initialize
+                totalPagesSpan.textContent = totalPages;
+                showPage(1);
+                
+                // Event listeners
+                prevButton.addEventListener('click', () => currentPage > 1 && showPage(currentPage - 1));
+                nextButton.addEventListener('click', () => currentPage < totalPages && showPage(currentPage + 1));
+            });
+        }
         
         // Initialize the form state
         document.addEventListener('DOMContentLoaded', function() {
@@ -525,6 +566,8 @@
                     updateSelectAllStatus('cre-select-all', 'input[name="cre-output-fields"]');
                 });
             });
+
+            initializeTablePagination();
         });
     </script>
 </body>
