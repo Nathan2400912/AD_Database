@@ -49,7 +49,7 @@ def execute_query(cursor, condition_name, cell_type, gene_params,
                   de_params=None, cre_params=None, tf_params=None):
     """Execute queries based on parameters."""
     # Build the base query
-    query_parts = ["SELECT"]
+    query_parts = ["SELECT DISTINCT"]
     select_fields = []
     
     # Add requested gene fields
