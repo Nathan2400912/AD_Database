@@ -516,6 +516,15 @@
                 nextButton.addEventListener('click', () => currentPage < totalPages && showPage(currentPage + 1));
             });
         }
+
+        function scrollToResults() {
+            // Check if results exist
+            const resultsSection = document.querySelector('.results-section');
+            if (resultsSection) {
+              // Scroll to the results section with a smooth animation
+              resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }
         
         // Initialize the form state
         document.addEventListener('DOMContentLoaded', function() {
@@ -567,8 +576,32 @@
                 });
             });
 
+            const resultsSection = document.querySelector('.results-section');
+            if (resultsSection) {
+            // Add a small delay to ensure everything is rendered
+            setTimeout(scrollToResults, 100);
+            }
+
+            // Modify the form submission to prevent default action and handle manually
+            const searchForm = document.getElementById('main-search-form');
+            if (searchForm) {
+            searchForm.addEventListener('submit', function(e) {
+                // Store the fact that a search was submitted in localStorage
+                localStorage.setItem('searchSubmitted', 'true');
+            });
+            }
+
             initializeTablePagination();
         });
+
+        window.onload = function() {
+            if (localStorage.getItem('searchSubmitted') === 'true') {
+              // Clear the flag
+              localStorage.removeItem('searchSubmitted');
+              // Scroll to results
+              scrollToResults();
+            }
+          };
     </script>
 </body>
 </html>
