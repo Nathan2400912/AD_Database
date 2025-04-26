@@ -115,33 +115,37 @@ def execute_query(cursor, condition_name, cell_type, gene_params,
     # Basic gene query 
     query_parts.append("""
     FROM Genes g
-    LEFT JOIN Differential_Expression de ON g.gid = de.gid
+    JOIN Differential_Expression de ON g.gid = de.gid
     JOIN Conditions c ON de.cdid = c.cdid AND c.name = %s
     JOIN Cell_Type ct ON de.cell_id = ct.cell_id AND ct.cell = %s
-    LEFT JOIN Gene_Pathway_Associations gpa ON g.gid = gpa.gid
-    LEFT JOIN Biological_Pathways bp ON gpa.pid = bp.pid
+    JOIN Gene_Pathway_Associations gpa ON g.gid = gpa.gid
+    JOIN Biological_Pathways bp ON gpa.pid = bp.pid
     """)
     
     # Add related CRE info 
     if len(cre_fields) > 0 or len(cre_params) > 0:
         query_parts.append("""
-        LEFT JOIN CRE_Gene_Interactions cgi ON g.gid = cgi.gid
-        LEFT JOIN Cis_Regulatory_Elements cre ON cgi.cid = cre.cid AND cre.cdid = c.cdid AND cre.cell_id = ct.cell_id
+        JOIN CRE_Gene_Interactions cgi ON g.gid = cgi.gid
+        JOIN Cis_Regulatory_Elements cre ON cgi.cid = cre.cid AND cre.cdid = c.cdid AND cre.cell_id = ct.cell_id
         """)
         
-    # safeguard
+    # safeguard if user bypasses cre to get tfs
     if (len(tf_fields)+len(tf_params)) > 0 and (len(cre_fields)+len(cre_params)) == 0:
-        if not cre_fields or len(cre_fields) == 0:
+        query_parts.append("""
+        JOIN CRE_Gene_Interactions cgi ON g.gid = cgi.gid
+        JOIN Cis_Regulatory_Elements cre ON cgi.cid = cre.cid AND cre.cdid = c.cdid AND cre.cell_id = ct.cell_id
+        """)
+        if len(cre_fields) == 0:
             cre_fields = ["cre_chr", "cre_start", "cre_end"]
-        if not cre_params:
+        if len(cre_params) == 0:
             cre_params = {}
         
     # include tfs
     if len(tf_fields) > 0 or len(tf_params) > 0:
         query_parts.append("""
-        LEFT JOIN Merged_CRES mc ON cre.mcid = mc.mcid
-        LEFT JOIN TF_CRE_Interactions tci ON mc.mcid = tci.mcid AND tci.cdid = c.cdid AND tci.cell_id = ct.cell_id
-        LEFT JOIN Transcription_Factors tf ON tci.tfid = tf.tfid
+        JOIN Merged_CRES mc ON cre.mcid = mc.mcid
+        JOIN TF_CRE_Interactions tci ON mc.mcid = tci.mcid AND tci.cdid = c.cdid AND tci.cell_id = ct.cell_id
+        JOIN Transcription_Factors tf ON tci.tfid = tf.tfid
         """)
     
     
@@ -155,7 +159,7 @@ def execute_query(cursor, condition_name, cell_type, gene_params,
             id_type = gene_params.get('gene-id-type')
             identifier = gene_params.get('gene-identifier')
             if id_type == 'hgnc':
-                query_parts.append("AND g.gene_symbol = %s")
+                query_parts.append("AND lower(g.gene_symbol) = lower(%s)")
                 params.append(identifier)
             elif id_type == 'entrez':
                 query_parts.append("AND g.Entrez_ID = %s")
@@ -180,7 +184,7 @@ def execute_query(cursor, condition_name, cell_type, gene_params,
         
         if gene_params.get('gene-pathway'):
             pathway_input = gene_params.get('gene-pathway').upper()
-            query_parts.append("AND bp.name LIKE %s")
+            query_parts.append("AND lower(bp.name) LIKE lower(%s)")
             params.append(f"%{pathway_input}%")
 
     # Add DE filters if requested
@@ -214,7 +218,7 @@ def execute_query(cursor, condition_name, cell_type, gene_params,
     if len(tf_params) > 0:
         # Add TF-specific filters
         if tf_params.get('tf-name'):
-            query_parts.append("AND tf.name = %s")
+            query_parts.append("AND lower(tf.name) = lower(%s)")
             params.append(tf_params.get('tf-name'))
         
     
