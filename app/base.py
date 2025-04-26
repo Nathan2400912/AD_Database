@@ -46,8 +46,9 @@ def connect_database(hostname='bioed-new.bu.edu', port=4253, database='Team7',
 
 def execute_query(cursor, condition_name, cell_type, gene_params, 
                   output_fields, cre_fields, tf_fields, include_de=False, 
-                  de_params=None, cre_params=None, tf_params=None):
-    """Execute queries based on parameters."""
+                  de_params=None, cre_params=None, tf_params=None,
+                  page=1, per_page=10):
+    """Execute queries based on parameters with pagination."""
     # Build the base query
     query_parts = ["SELECT DISTINCT"]
     select_fields = []
@@ -220,42 +221,114 @@ def execute_query(cursor, condition_name, cell_type, gene_params,
         if tf_params.get('tf-name'):
             query_parts.append("AND lower(tf.name) = lower(%s)")
             params.append(tf_params.get('tf-name'))
-        
     
-    # Combine all parts into a single query
-    query = " ".join(query_parts)
+    # Combine all parts into a base query (without pagination)
+    base_query = " ".join(query_parts)
     
-    # Execute the query
+    # First get total count for pagination metadata
+    count_query = f"SELECT COUNT(*) FROM ({base_query}) as count_query"
     try:
-        cursor.execute(query, params)
+        cursor.execute(count_query, params)
+        total_count = cursor.fetchone()[0]
+    except mariadb.Error as e:
+        return None, None, f"Database count query error: {str(e)}"
+    
+    # Add pagination to the final query
+    paginated_query = base_query + f" LIMIT {per_page} OFFSET {(page-1)*per_page}"
+    
+    # Execute the paginated query
+    try:
+        cursor.execute(paginated_query, params)
         results = cursor.fetchall()
         # Convert results to list of dictionaries with column names
         column_names = [desc[0] for desc in cursor.description]
         result_dicts = [dict(zip(column_names, row)) for row in results]
-        return result_dicts, None
+        
+        # Create pagination metadata
+        pagination_info = {
+            'total_records': total_count,
+            'page': page,
+            'per_page': per_page,
+            'total_pages': (total_count + per_page - 1) // per_page  # Ceiling division
+        }
+        
+        return result_dicts, pagination_info, None
     except mariadb.Error as e:
-        return None, f"Database query error: {str(e)}\nQuery: {query}\nParams: {params}"
+        return None, None, f"Database query error: {str(e)}\nQuery: {paginated_query}\nParams: {params}"
 
-def generate_table_html(results, headers, title=None, rows_per_page=10):
+def generate_table_html(results, headers, title=None, rows_per_page=10, pagination_info=None):
     """Generate HTML table from results."""
     if not results:
         return "<p>No results found matching your criteria.</p>"
     
-    # Calculate total pages
-    total_records = len(results)
-    total_pages = (total_records + rows_per_page - 1) // rows_per_page  # Ceiling division
-    
     table_id = "results-table"
     
-    table_html = f"""
-    <div class="results-section">
-        <h2>{title or "Search Results"}</h2>
-        <p>Found {total_records} records matching your search criteria.</p>
-        <div class="pagination-controls" data-pagination="{table_id}-pagination">
-            <button class="pagination-button prev-page" disabled>Previous</button>
-            <span id="page-indicator">Page <span class="current-page">1</span> of <span class="total-pages">{total_pages}</span></span>
-            <button class="pagination-button next-page" {"disabled" if total_pages <= 1 else ""}>Next</button>
-        </div>
+    # Determine if we're using server-side or client-side pagination
+    if pagination_info:
+        # Server-side pagination (using LIMIT/OFFSET)
+        total_records = pagination_info['total_records']
+        current_page = pagination_info['page']
+        per_page = pagination_info['per_page']
+        total_pages = pagination_info['total_pages']
+        
+        table_html = f"""
+        <div class="results-section">
+            <h2>{title or "Search Results"}</h2>
+            <p>Found {total_records} records matching your search criteria. Showing page {current_page} of {total_pages}.</p>
+            
+            <!-- Server-side pagination controls -->
+            <div class="server-pagination">
+                <form id="pagination-form" method="POST" action="{{ url_for('search') }}">
+                    <!-- Hidden field for page number -->
+                    <input type="hidden" name="page" id="current-page" value="{current_page}">
+                    <input type="hidden" name="per_page" id="per-page" value="{per_page}">
+                    
+                    <!-- Other hidden fields will be populated by JavaScript -->
+                    <input type="hidden" name="condition" value="{{ condition }}">
+                    <input type="hidden" name="cell_type" value="{{ cell_type }}">
+                    <input type="hidden" name="active_tab" value="{{ active_tab }}">
+                    
+                    <div class="pagination-controls server-controls">
+                        <button type="button" class="pagination-button" id="first-page" onclick="changePage(1)" 
+                                {" disabled" if current_page == 1 else ""}>First</button>
+                        <button type="button" class="pagination-button" id="prev-page" onclick="changePage({current_page-1})" 
+                                {" disabled" if current_page == 1 else ""}>Previous</button>
+                        
+                        <span class="page-info">Page {current_page} of {total_pages}</span>
+                        
+                        <button type="button" class="pagination-button" id="next-page" onclick="changePage({current_page+1})" 
+                                {" disabled" if current_page == total_pages else ""}>Next</button>
+                        <button type="button" class="pagination-button" id="last-page" onclick="changePage({total_pages})" 
+                                {" disabled" if current_page == total_pages else ""}>Last</button>
+                        
+                        <select id="rows-per-page" onchange="changeRowsPerPage(this.value)">
+                            <option value="10" selected>10 per page</option>
+                            <option value="25">25 per page</option>
+                            <option value="50">50 per page</option>
+                            <option value="100">100 per page</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+        """
+    else:
+        # Client-side pagination (existing code)
+        total_records = len(results)
+        total_pages = (total_records + rows_per_page - 1) // rows_per_page  # Ceiling division
+        
+        table_html = f"""
+        <div class="results-section">
+            <h2>{title or "Search Results"}</h2>
+            <p>Found {total_records} records matching your search criteria.</p>
+            <div class="pagination-controls" data-pagination="{table_id}-pagination">
+                <button class="pagination-button prev-page" disabled>Previous</button>
+                <span id="page-indicator">Page <span class="current-page">1</span> of <span class="total-pages">{total_pages}</span></span>
+                <button class="pagination-button next-page" {"disabled" if total_pages <= 1 else ""}>Next</button>
+            </div>
+        """
+    
+    # Common table HTML for both pagination types
+    table_html += f"""
         <div class="table-container">
             <table id="{table_id}" class="results-table">
                 <thead>
@@ -274,7 +347,7 @@ def generate_table_html(results, headers, title=None, rows_per_page=10):
                 <tbody>
     """
     
-    # Add table rows (all of them, pagination handled by JS)
+    # Add table rows
     for row in results:
         table_html += "<tr>"
         for header in headers:
@@ -389,6 +462,10 @@ def search():
     cell_type = data.get('cell_type')
     active_tab = data.get('active_tab', 'gene')  # Default to gene tab
     
+    # Get pagination parameters
+    page = int(data.get('page', 1)) 
+    per_page = int(data.get('per_page', 10))  # Default to 50 records per page
+    
     # Validate required parameters
     if not condition or not cell_type:
         error = "Error: Both condition and cell type are required."
@@ -416,6 +493,7 @@ def search():
         results = None
         error = None
         table_html = ""
+        pagination_info = None
         
         # Generate a unique ID for this result set
         result_id = str(uuid.uuid4())
@@ -458,9 +536,14 @@ def search():
             
             tf_fields = request.form.getlist('tf-checkbox') if request.method == 'POST' else request.args.getlist('tf-checkbox')
             
-            results, error = execute_query(cursor, condition, cell_type, gene_params,
-                                        output_fields, cre_fields, tf_fields, include_de=include_de, 
-                                        de_params=de_params, cre_params=cre_params, tf_params=tf_params)
+            # Call execute_query with pagination parameters
+            results, pagination_info, error = execute_query(
+                cursor, condition, cell_type, gene_params,
+                output_fields, cre_fields, tf_fields, include_de=include_de, 
+                de_params=de_params, cre_params=cre_params, tf_params=tf_params,
+                page=page, per_page=per_page  # Add pagination parameters
+            )
+            
             # Build the title for results
             title = f"Search Results ({condition}, {cell_type})"
             description = f"Search for {condition} in {cell_type} cells"
@@ -471,7 +554,8 @@ def search():
             # Generate column headers for the result table
             if results:
                 headers = list(results[0].keys())
-                table_html = generate_table_html(results, headers, "Search Results")
+                # Pass pagination_info to generate_table_html
+                table_html = generate_table_html(results, headers, "Search Results", pagination_info=pagination_info)
             else:
                 table_html = "<p>No gene results found matching your criteria.</p>"
                 
@@ -481,10 +565,18 @@ def search():
         
         # Save the results to a file if requested
         if results and (save_option == 'save' or save_option == 'both'):
+            # For saving to file, we need to get ALL results without pagination
+            all_results, _, error = execute_query(
+                cursor, condition, cell_type, gene_params,
+                output_fields, cre_fields, tf_fields, include_de=include_de, 
+                de_params=de_params, cre_params=cre_params, tf_params=tf_params,
+                page=1, per_page=1000000  # Large value to get all results
+            )
+            
             current_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"{search_type}_{condition}_{cell_type}_{current_time}_{result_id}.csv"
             
-            if save_results_to_csv(results, filename):
+            if save_results_to_csv(all_results, filename):
                 # Store file metadata
                 filepath = os.path.join(SAVE_DIR, filename)
                 file_size = get_file_size(filepath)
@@ -510,7 +602,7 @@ def search():
             else:
                 error = "Error: Failed to save results to file."
         
-        # Store results in session for save_current_result
+        # Store results in session for save_current_result (store the paginated results)
         if results:
             session['current_results'] = results
         
@@ -521,7 +613,8 @@ def search():
                               cell_type=cell_type,
                               active_tab=active_tab,
                               error=error,
-                              result_id=result_id if results else None)
+                              result_id=result_id if results else None,
+                              pagination_info=pagination_info)  # Pass pagination info to template
         
     except Exception as e:
         error_message = f"Application error: {str(e)}"
