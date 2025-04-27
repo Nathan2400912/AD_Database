@@ -23,7 +23,8 @@
 
     <div class="container">
         <section class="card">
-            <form id="main-search-form" action="{{ url_for('search') }}" method="POST">
+            <!-- Changed form method from POST to GET for server-side pagination -->
+            <form id="main-search-form" action="{{ url_for('search') }}" method="GET">
                 <h2>Search Database</h2>
                 
                 {% if error %}
@@ -417,7 +418,7 @@
         
         // Export table to CSV function
         function exportTableToCSV() {
-            const table = document.querySelector('.table-container table');
+            const table = document.querySelector('.results-table');
             if (!table) return;
             
             let csv = [];
@@ -457,146 +458,14 @@
             document.body.removeChild(link);
         }
 
-        // Initialize table pagination
-        function initializeTablePagination() {
-            // Only initialize client-side pagination if we don't have server-side pagination
-            if (!document.querySelector('.server-pagination')) {
-                const tables = document.querySelectorAll('.results-table');
-                
-                tables.forEach(table => {
-                    // Create unique container class for each table's controls
-                    const tableContainer = table.closest('.results-section');
-                    if (!tableContainer) return;
-                    
-                    // Find elements relative to the container
-                    const tbody = table.querySelector('tbody');
-                    if (!tbody) return;  // Add null check
-                    
-                    const rows = Array.from(tbody.querySelectorAll('tr')); // Convert to array
-                    if (rows.length === 0) return;  // Handle empty tables
-                    
-                    const paginationId = table.id + '-pagination';
-                    const controls = tableContainer.querySelector(`[data-pagination="${paginationId}"]`);
-                    if (!controls) return;
-                    
-                    const prevButton = controls.querySelector('.prev-page');
-                    const nextButton = controls.querySelector('.next-page');
-                    const currentPageSpan = controls.querySelector('.current-page');
-                    const totalPagesSpan = controls.querySelector('.total-pages');
-                    
-                    if (!prevButton || !nextButton || !currentPageSpan || !totalPagesSpan) return;
-                    
-                    const rowsPerPage = 10;
-                    const totalRows = rows.length;
-                    const totalPages = Math.ceil(totalRows / rowsPerPage);
-                    
-                    let currentPage = 1;
-                    
-                    function showPage(pageNum) {
-                        const start = (pageNum - 1) * rowsPerPage;
-                        const end = Math.min(start + rowsPerPage, totalRows);
-                        
-                        rows.forEach((row, index) => {
-                            row.style.display = (index >= start && index < end) ? '' : 'none';
-                        });
-                        
-                        currentPage = pageNum;
-                        currentPageSpan.textContent = currentPage;
-                        prevButton.disabled = currentPage === 1;
-                        nextButton.disabled = currentPage === totalPages;
-                    }
-                    
-                    // Initialize
-                    totalPagesSpan.textContent = totalPages;
-                    showPage(1);
-                    
-                    // Event listeners
-                    prevButton.addEventListener('click', () => currentPage > 1 && showPage(currentPage - 1));
-                    nextButton.addEventListener('click', () => currentPage < totalPages && showPage(currentPage + 1));
-                });
-            }
-        }
-
-
+        // Function to scroll to results
         function scrollToResults() {
             // Check if results exist
             const resultsSection = document.querySelector('.results-section');
             if (resultsSection) {
-              // Scroll to the results section with a smooth animation
-              resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // Scroll to the results section with a smooth animation
+                resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
-          }
-
-        // server-side pagination
-        function changePage(newPage) {
-            // Update the hidden input field
-            document.getElementById('current-page').value = newPage;
-            // Copy form fields from main search form
-            copySearchFormFields();
-            // Submit the form
-            document.getElementById('pagination-form').submit();
-        }
-        
-        function changeRowsPerPage(newPerPage) {
-            // Update the per-page field
-            document.getElementById('per-page').value = newPerPage;
-            // Reset to page 1 when changing rows per page
-            document.getElementById('current-page').value = 1;
-            // Copy form fields from main search form
-            copySearchFormFields();
-            // Submit the form
-            document.getElementById('pagination-form').submit();
-        }
-        
-        function copySearchFormFields() {
-            const mainForm = document.getElementById('main-search-form');
-            const paginationForm = document.getElementById('pagination-form');
-            
-            // Skip fields that are already in the pagination form
-            const skipFields = ['page', 'per_page', 'condition', 'cell_type', 'active_tab'];
-            
-            // Remove any existing fields that we're going to replace
-            const existingFields = paginationForm.querySelectorAll('input[type="hidden"]');
-            existingFields.forEach(field => {
-                if (!skipFields.includes(field.name)) {
-                    field.remove();
-                }
-            });
-            
-            // Copy all fields from main form
-            Array.from(mainForm.elements).forEach(element => {
-                // Skip buttons, page, per_page, and fields with no name
-                if (!element.name || skipFields.includes(element.name) || 
-                    element.type === 'submit' || element.type === 'reset' || 
-                    element.type === 'button') {
-                    return;
-                }
-                
-                // Handle different input types
-                if (element.type === 'checkbox' || element.type === 'radio') {
-                    if (element.checked) {
-                        const input = document.createElement('input');
-                        input.type = 'hidden';
-                        input.name = element.name;
-                        input.value = element.value;
-                        paginationForm.appendChild(input);
-                    }
-                } else if (element.type === 'select-multiple') {
-                    Array.from(element.selectedOptions).forEach(option => {
-                        const input = document.createElement('input');
-                        input.type = 'hidden';
-                        input.name = element.name;
-                        input.value = option.value;
-                        paginationForm.appendChild(input);
-                    });
-                } else if (element.value) {
-                    const input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = element.name;
-                    input.value = element.value;
-                    paginationForm.appendChild(input);
-                }
-            });
         }
         
         // Initialize the form state
@@ -617,6 +486,8 @@
             // Check checkbox status when form is loaded
             const updateSelectAllStatus = (selectAllId, checkboxSelector) => {
                 const selectAll = document.getElementById(selectAllId);
+                if (!selectAll) return; // Skip if element doesn't exist
+                
                 const checkboxes = document.querySelectorAll(checkboxSelector);
                 const allChecked = Array.from(checkboxes).every(cb => cb.checked);
                 const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
@@ -649,36 +520,32 @@
                 });
             });
 
+            // Scroll to results if they exist
             const resultsSection = document.querySelector('.results-section');
             if (resultsSection) {
-            // Add a small delay to ensure everything is rendered
-            setTimeout(scrollToResults, 100);
+                // Add a small delay to ensure everything is rendered
+                setTimeout(scrollToResults, 100);
             }
 
-            // Modify the form submission to prevent default action and handle manually
+            // Store search submission state for scrolling
             const searchForm = document.getElementById('main-search-form');
             if (searchForm) {
-            searchForm.addEventListener('submit', function(e) {
-                // Store the fact that a search was submitted in localStorage
-                localStorage.setItem('searchSubmitted', 'true');
-            });
-            }
-
-            initializeTablePagination();
-            const paginationForm = document.getElementById('pagination-form');
-            if (paginationForm) {
-                copySearchFormFields();
+                searchForm.addEventListener('submit', function(e) {
+                    // Store the fact that a search was submitted in localStorage
+                    localStorage.setItem('searchSubmitted', 'true');
+                });
             }
         });
 
+        // When the page loads, check if we need to scroll to results
         window.onload = function() {
             if (localStorage.getItem('searchSubmitted') === 'true') {
-              // Clear the flag
-              localStorage.removeItem('searchSubmitted');
-              // Scroll to results
-              scrollToResults();
+                // Clear the flag
+                localStorage.removeItem('searchSubmitted');
+                // Scroll to results
+                scrollToResults();
             }
-          };
+        };
     </script>
 </body>
 </html>

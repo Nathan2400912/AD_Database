@@ -256,116 +256,143 @@ def execute_query(cursor, condition_name, cell_type, gene_params,
     except mariadb.Error as e:
         return None, None, f"Database query error: {str(e)}\nQuery: {paginated_query}\nParams: {params}"
 
-def generate_table_html(results, headers, title=None, rows_per_page=10, pagination_info=None):
-    """Generate HTML table from results."""
+def generate_table_html(results, headers, pagination_info, title=None, **params):
+    """Generate HTML table from results with server-side pagination."""
     if not results:
         return "<p>No results found matching your criteria.</p>"
     
-    table_id = "results-table"
+    # Extract pagination information
+    page = pagination_info['page']
+    per_page = pagination_info['per_page']  # Should be 10
+    total_records = pagination_info['total_records']
+    total_pages = pagination_info['total_pages']
+
+    # Generate hidden fields for pagination
+    hidden_fields = []
+    for key, value in params.items():
+        if key != 'page' and key != 'per_page':  
+            if isinstance(value, dict):  
+                for sub_key, sub_value in value.items():
+                    if sub_value is not None:
+                        hidden_fields.append(f'<input type="hidden" name="{key}[{sub_key}]" value="{sub_value}">')
+            elif isinstance(value, list):  
+                for item in value:
+                    hidden_fields.append(f'<input type="hidden" name="{key}[]" value="{item}">')
+            elif value is not None:
+                hidden_fields.append(f'<input type="hidden" name="{key}" value="{value}">')
     
-    # Determine if we're using server-side or client-side pagination
-    if pagination_info:
-        # Server-side pagination (using LIMIT/OFFSET)
-        total_records = pagination_info['total_records']
-        current_page = pagination_info['page']
-        per_page = pagination_info['per_page']
-        total_pages = pagination_info['total_pages']
-        
-        table_html = f"""
-        <div class="results-section">
-            <h2>{title or "Search Results"}</h2>
-            <p>Found {total_records} records matching your search criteria. Showing page {current_page} of {total_pages}.</p>
-            
-            <!-- Server-side pagination controls -->
-            <div class="server-pagination">
-                <form id="pagination-form" method="POST" action="{{ url_for('search') }}">
-                    <!-- Hidden field for page number -->
-                    <input type="hidden" name="page" id="current-page" value="{current_page}">
-                    <input type="hidden" name="per_page" id="per-page" value="{per_page}">
-                    
-                    <!-- Other hidden fields will be populated by JavaScript -->
-                    <input type="hidden" name="condition" value="{{ condition }}">
-                    <input type="hidden" name="cell_type" value="{{ cell_type }}">
-                    <input type="hidden" name="active_tab" value="{{ active_tab }}">
-                    
-                    <div class="pagination-controls server-controls">
-                        <button type="button" class="pagination-button" id="first-page" onclick="changePage(1)" 
-                                {" disabled" if current_page == 1 else ""}>First</button>
-                        <button type="button" class="pagination-button" id="prev-page" onclick="changePage({current_page-1})" 
-                                {" disabled" if current_page == 1 else ""}>Previous</button>
-                        
-                        <span class="page-info">Page {current_page} of {total_pages}</span>
-                        
-                        <button type="button" class="pagination-button" id="next-page" onclick="changePage({current_page+1})" 
-                                {" disabled" if current_page == total_pages else ""}>Next</button>
-                        <button type="button" class="pagination-button" id="last-page" onclick="changePage({total_pages})" 
-                                {" disabled" if current_page == total_pages else ""}>Last</button>
-                        
-                        <select id="rows-per-page" onchange="changeRowsPerPage(this.value)">
-                            <option value="10" selected>10 per page</option>
-                            <option value="25">25 per page</option>
-                            <option value="50">50 per page</option>
-                            <option value="100">100 per page</option>
-                        </select>
-                    </div>
-                </form>
-            </div>
-        """
-    else:
-        # Client-side pagination (existing code)
-        total_records = len(results)
-        total_pages = (total_records + rows_per_page - 1) // rows_per_page  # Ceiling division
-        
-        table_html = f"""
-        <div class="results-section">
-            <h2>{title or "Search Results"}</h2>
-            <p>Found {total_records} records matching your search criteria.</p>
-            <div class="pagination-controls" data-pagination="{table_id}-pagination">
-                <button class="pagination-button prev-page" disabled>Previous</button>
-                <span id="page-indicator">Page <span class="current-page">1</span> of <span class="total-pages">{total_pages}</span></span>
-                <button class="pagination-button next-page" {"disabled" if total_pages <= 1 else ""}>Next</button>
-            </div>
-        """
+    # Add hidden fields for specific parameter types that require special handling
+    if 'output_fields' in params and params['output_fields']:
+        for field in params['output_fields']:
+            hidden_fields.append(f'<input type="hidden" name="output-fields" value="{field}">')
     
-    # Common table HTML for both pagination types
-    table_html += f"""
+    if 'cre_fields' in params and params['cre_fields']:
+        for field in params['cre_fields']:
+            hidden_fields.append(f'<input type="hidden" name="cre-output-fields" value="{field}">')
+    
+    if 'tf_fields' in params and params['tf_fields']:
+        for field in params['tf_fields']:
+            hidden_fields.append(f'<input type="hidden" name="tf-checkbox" value="{field}">')
+    
+    if 'include_de' in params and params['include_de']:
+        hidden_fields.append('<input type="hidden" name="include_de" value="on">')
+    
+    if 'de_params' in params and params['de_params']:
+        de_params = params['de_params']
+        if 'de_fields' in de_params and de_params['de_fields']:
+            for field in de_params['de_fields']:
+                hidden_fields.append(f'<input type="hidden" name="de_fields" value="{field}">')
+        
+        if 'padj_filter' in de_params and de_params['padj_filter']:
+            hidden_fields.append(f'<input type="hidden" name="padj_filter" value="{de_params["padj_filter"]}">')
+        
+        if 'logfc_filter' in de_params and de_params['logfc_filter']:
+            hidden_fields.append(f'<input type="hidden" name="logfc_filter" value="{de_params["logfc_filter"]}">')
+    
+    if 'gene_params' in params and params['gene_params']:
+        gene_params = params['gene_params']
+        for key, value in gene_params.items():
+            if value:
+                hidden_fields.append(f'<input type="hidden" name="{key}" value="{value}">')
+    
+    if 'cre_params' in params and params['cre_params']:
+        cre_params = params['cre_params']
+        for key, value in cre_params.items():
+            if value:
+                hidden_fields.append(f'<input type="hidden" name="{key}" value="{value}">')
+    
+    if 'tf_params' in params and params['tf_params']:
+        tf_params = params['tf_params']
+        for key, value in tf_params.items():
+            if value:
+                hidden_fields.append(f'<input type="hidden" name="{key}" value="{value}">')
+    
+    # Always include condition and cell_type in hidden fields
+    if 'condition' in params and params['condition']:
+        hidden_fields.append(f'<input type="hidden" name="condition" value="{params["condition"]}">')
+    
+    if 'cell_type' in params and params['cell_type']:
+        hidden_fields.append(f'<input type="hidden" name="cell_type" value="{params["cell_type"]}">')
+    
+    if 'active_tab' in params and params['active_tab']:
+        hidden_fields.append(f'<input type="hidden" name="active_tab" value="{params["active_tab"]}">')
+    
+    # Create the results table
+    table_html = f"""
+    <div class="results-section">
+        <h2>{title or "Search Results"}</h2>
+        <p>Showing {len(results)} of {total_records} total results (page {page} of {total_pages})</p>
+        
         <div class="table-container">
-            <table id="{table_id}" class="results-table">
-                <thead>
-                    <tr>
+            <table class="results-table">
+                <thead><tr>
     """
     
-    # Add table headers
     for header in headers:
-        # Format header for display (convert snake_case or camelCase to Title Case)
-        display_header = header.replace('_', ' ').title()
-        table_html += f"<th>{display_header}</th>"
+        table_html += f"<th>{header.replace('_', ' ').title()}</th>"
     
     table_html += """
-                    </tr>
-                </thead>
-                <tbody>
+            </tr></thead>
+            <tbody>
     """
     
-    # Add table rows
     for row in results:
         table_html += "<tr>"
         for header in headers:
-            cell_value = row.get(header, '')
-            if cell_value is None:
-                cell_value = ''
-            table_html += f"<td>{cell_value}</td>"
+            value = row.get(header, '')
+            table_html += f"<td>{value if value is not None else ''}</td>"
         table_html += "</tr>"
     
     table_html += """
-                </tbody>
-            </table>
-        </div>
+            </tbody>
+        </table>
     </div>
     """
-    
-    return table_html
 
+    # Add server-side pagination controls
+    search_url = url_for('search')
+    
+    # Only show pagination if there are multiple pages
+    if total_pages > 1:
+        pagination = f"""
+        <div class="pagination">
+            <form method="GET" action="{search_url}">
+                {''.join(hidden_fields)}
+                <input type="hidden" name="per_page" value="{per_page}">
+                <button type="submit" name="page" value="{max(1, page - 1)}" {'disabled' if page <= 1 else ''}>
+                    Previous
+                </button>
+                <span>Page {page} of {total_pages}</span>
+                <button type="submit" name="page" value="{min(total_pages, page + 1)}" {'disabled' if page >= total_pages else ''}>
+                    Next
+                </button>
+            </form>
+        </div>
+        """
+        return table_html + pagination
+    else:
+        return table_html
+    
 def save_results_to_csv(results, filename):
     """Save query results to a CSV file."""
     if not results:
@@ -449,13 +476,18 @@ def faq():
 def resources():
     return render_template('Resources_DownloadData.html')
 
-@app.route('/search', methods=['GET', 'POST'])
+@app.route('/search', methods=['GET'])
 def search():
+    # Debug information
+    print(f"Request Method: {request.method}")
+    print(f"Args Data: {request.args}")
+    
     # Check if it's a search request (has parameters)
-    if request.method == 'GET' and not request.args:
+    if not request.args:
         return redirect(url_for('search_page'))
     
-    data = request.form if request.method == 'POST' else request.args
+    # Get data from the request object
+    data = request.args
     
     # Get common parameters
     condition = data.get('condition')
@@ -463,19 +495,30 @@ def search():
     active_tab = data.get('active_tab', 'gene')  # Default to gene tab
     
     # Get pagination parameters
-    page = int(data.get('page', 1)) 
-    per_page = int(data.get('per_page', 10))  # Default to 50 records per page
+    try:
+        page = int(data.get('page', 1))
+    except (ValueError, TypeError):
+        page = 1
+        
+    try:
+        per_page = int(data.get('per_page', 10))  # Default to 10 items per page
+    except (ValueError, TypeError):
+        per_page = 10
+    
+    # Print debug info
+    print(f"Pagination: page={page}, per_page={per_page}")
+    print(f"Params: condition={condition}, cell_type={cell_type}, active_tab={active_tab}")
     
     # Validate required parameters
     if not condition or not cell_type:
         error = "Error: Both condition and cell type are required."
         return render_template('updated_search.html', 
-                              error=error,
-                              table_html=None,
-                              condition=None,
-                              cell_type=None,
-                              active_tab=active_tab,
-                              result_id=None)
+                             error=error,
+                             table_html=None,
+                             condition=None,
+                             cell_type=None,
+                             active_tab=active_tab,
+                             result_id=None)
     
     #Connect to database
     connection, cursor = connect_database()
@@ -493,7 +536,6 @@ def search():
         results = None
         error = None
         table_html = ""
-        pagination_info = None
         
         # Generate a unique ID for this result set
         result_id = str(uuid.uuid4())
@@ -501,47 +543,54 @@ def search():
         save_option = data.get('save_option', 'view')  # Options: view, save, both
         
         if active_tab == 'gene' or active_tab == 'cre' or active_tab == 'tf':
+            # Get gene parameters
             gene_params = {
-                    'gene-id-type': data.get('gene-id-type'),
-                    'gene-identifier': data.get('gene-identifier'),
-                    'gene-chr': data.get('gene-chr'),
-                    'gene-start': data.get('gene-start'),
-                    'gene-end': data.get('gene-end'),
-                    'gene-pathway': data.get('gene-pathway')
-                }
+                'gene-id-type': data.get('gene-id-type'),
+                'gene-identifier': data.get('gene-identifier'),
+                'gene-chr': data.get('gene-chr'),
+                'gene-start': data.get('gene-start'),
+                'gene-end': data.get('gene-end'),
+                'gene-pathway': data.get('gene-pathway')
+            }
             
-            output_fields = request.form.getlist('output-fields') if request.method == 'POST' else request.args.getlist('output-fields')
+            # Get output fields from GET request
+            output_fields = data.getlist('output-fields')
             
+            # Get differential expression parameters
             include_de = data.get('include_de') == 'on'
             de_params = None
             if include_de:
                 de_params = {
-                    'de_fields': request.form.getlist('de_fields') if request.method == 'POST' else request.args.getlist('de_fields'),
+                    'de_fields': data.getlist('de_fields'),
                     'padj_filter': data.get('padj_filter'),
                     'logfc_filter': data.get('logfc_filter')
                 }
             
+            # Get CRE parameters
             cre_params = {
-                    'cre-chr': data.get('cre-chr'),
-                    'cre-start': data.get('cre-start'),
-                    'cre-end': data.get('cre-end'),
-                    'cre-log2fc': data.get('cre-log2fc')
-                }
-            
-            cre_fields = request.form.getlist('cre-output-fields') if request.method == 'POST' else request.args.getlist('cre-output-fields')
-            
-            tf_params = {
-                    'tf-name': data.get('tf-name')  
+                'cre-chr': data.get('cre-chr'),
+                'cre-start': data.get('cre-start'),
+                'cre-end': data.get('cre-end'),
+                'cre-log2fc': data.get('cre-log2fc')
             }
             
-            tf_fields = request.form.getlist('tf-checkbox') if request.method == 'POST' else request.args.getlist('tf-checkbox')
+            # Get CRE fields from GET request
+            cre_fields = data.getlist('cre-output-fields')
+            
+            # Get TF parameters
+            tf_params = {
+                'tf-name': data.get('tf-name')  
+            }
+            
+            # Get TF fields from GET request
+            tf_fields = data.getlist('tf-checkbox')
             
             # Call execute_query with pagination parameters
             results, pagination_info, error = execute_query(
                 cursor, condition, cell_type, gene_params,
                 output_fields, cre_fields, tf_fields, include_de=include_de, 
                 de_params=de_params, cre_params=cre_params, tf_params=tf_params,
-                page=page, per_page=per_page  # Add pagination parameters
+                page=page, per_page=per_page
             )
             
             # Build the title for results
@@ -551,11 +600,26 @@ def search():
                 title += f" - {gene_params.get('gene-id-type').upper()}: {gene_params.get('gene-identifier')}"
                 description += f", {gene_params.get('gene-id-type').upper()}: {gene_params.get('gene-identifier')}"
             
-            # Generate column headers for the result table
+            # Generate column headers and table HTML for the result table
             if results:
                 headers = list(results[0].keys())
-                # Pass pagination_info to generate_table_html
-                table_html = generate_table_html(results, headers, "Search Results", pagination_info=pagination_info)
+                table_html = generate_table_html(
+                    results=results, 
+                    headers=headers, 
+                    pagination_info=pagination_info, 
+                    title=title,
+                    condition=condition,
+                    cell_type=cell_type,
+                    active_tab=active_tab,
+                    gene_params=gene_params,
+                    output_fields=output_fields,
+                    include_de=include_de,
+                    de_params=de_params,
+                    cre_params=cre_params,
+                    cre_fields=cre_fields,
+                    tf_params=tf_params,
+                    tf_fields=tf_fields
+                )
             else:
                 table_html = "<p>No gene results found matching your criteria.</p>"
                 
@@ -614,7 +678,7 @@ def search():
                               active_tab=active_tab,
                               error=error,
                               result_id=result_id if results else None,
-                              pagination_info=pagination_info)  # Pass pagination info to template
+                              pagination_info=pagination_info)
         
     except Exception as e:
         error_message = f"Application error: {str(e)}"
@@ -630,7 +694,7 @@ def search():
         if connection:
             cursor.close()
             connection.close()
-
+            
 @app.route('/downloads')
 def downloads():
     """Display the downloads page with saved files."""
