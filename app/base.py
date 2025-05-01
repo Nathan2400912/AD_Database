@@ -11,6 +11,7 @@ import datetime
 import uuid
 import shutil
 from werkzeug.utils import secure_filename
+import tempfile
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
@@ -20,12 +21,20 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.secret_key = 'your_secret_key_here'  # Required for session
 
 # Directory to store saved results
-SAVE_DIR = 'saved_results'
-if not os.path.exists(SAVE_DIR):
-    os.makedirs(SAVE_DIR)
-
-# In-memory storage for file metadata
-# In production, this would be in a database
+SAVE_DIR = '/var/www/html/students_25/nhwong/app/saved_results'
+try:
+    if not os.path.exists(SAVE_DIR):
+        os.makedirs(SAVE_DIR)
+    test_file = os.path.join(SAVE_DIR, 'test_write.txt')
+    with open(test_file, 'w') as f:
+        f.write('test')
+    print(f"Successfully verified write permissions to {SAVE_DIR}")
+except Exception as e:
+    print(f"Warning: Could not write to {SAVE_DIR}: {str(e)}")
+    SAVE_DIR = tempfile.mkdtemp(prefix='genomic_results_')
+    print(f"Using temporary directory instead: {SAVE_DIR}")
+    
+SAVE_METADATA = os.path.join(SAVE_DIR, 'saved_files.json')
 saved_files = {}
 
 def connect_database(hostname='bioed-new.bu.edu', port=4253, database='Team7', 
@@ -47,7 +56,7 @@ def connect_database(hostname='bioed-new.bu.edu', port=4253, database='Team7',
 def execute_query(cursor, condition_name, cell_type, gene_params, 
                   output_fields, cre_fields, tf_fields, include_de=False, 
                   de_params=None, cre_params=None, tf_params=None,
-                  page=1, per_page=10):
+                  page=1, per_page=50):
     """Execute queries based on parameters with pagination."""
     # Build the base query
     query_parts = ["SELECT DISTINCT"]
@@ -407,13 +416,16 @@ def save_results_to_csv(results, filename):
     
     filepath = os.path.join(SAVE_DIR, filename)
     
-    # Write to CSV
-    with open(filepath, 'w', newline='') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=headers)
-        writer.writeheader()
-        writer.writerows(results)
-    
-    return True
+    try:
+        # Write to CSV
+        with open(filepath, 'w', newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=headers)
+            writer.writeheader()
+            writer.writerows(results)
+        return True
+    except Exception as e:
+        print(f"Error saving CSV: {str(e)}")
+        return False
 
 def get_file_size(filepath):
     """Get human-readable file size."""
@@ -446,6 +458,26 @@ def get_preview(filepath, max_rows=5):
     
     return ", ".join([f"{headers[0]}: {row[0]}" for row in preview_rows])
 
+def load_saved_files():
+    """Load saved files metadata from JSON file."""
+    try:
+        if os.path.exists(SAVE_METADATA):
+            with open(SAVE_METADATA, 'r') as f:
+                return json.load(f)
+    except Exception as e:
+        print(f"Error loading saved files metadata: {str(e)}")
+    return {}
+
+def save_saved_files(saved_files_dict):
+    """Save files metadata to JSON file."""
+    try:
+        with open(SAVE_METADATA, 'w') as f:
+            json.dump(saved_files_dict, f, indent=2)
+        return True
+    except Exception as e:
+        print(f"Error saving files metadata: {str(e)}")
+        return False
+
 # Modified route: Change the index route to render base.html instead
 @app.route('/')
 def index():
@@ -476,6 +508,14 @@ def faq():
 def resources():
     return render_template('Resources_DownloadData.html')
 
+@app.route('/aboutus')
+def aboutus():
+    return render_template('about_us.html')
+
+@app.route('/visualizations')
+def visualizations():
+    return render_template('visualizations.html')
+
 @app.route('/search', methods=['GET'])
 def search():
     # Debug information
@@ -501,9 +541,9 @@ def search():
         page = 1
         
     try:
-        per_page = int(data.get('per_page', 10))  # Default to 10 items per page
+        per_page = int(data.get('per_page', 50))  # Default to 10 items per page
     except (ValueError, TypeError):
-        per_page = 10
+        per_page = 50
     
     # Print debug info
     print(f"Pagination: page={page}, per_page={per_page}")
@@ -698,6 +738,9 @@ def search():
 @app.route('/downloads')
 def downloads():
     """Display the downloads page with saved files."""
+    # Load saved files metadata
+    saved_files = load_saved_files()
+    
     # Convert saved_files dict to list for template
     files_list = list(saved_files.values())
     return render_template('downloads.html', saved_files=files_list)
@@ -705,6 +748,9 @@ def downloads():
 @app.route('/download/<file_id>')
 def download_file(file_id):
     """Download a specific saved file."""
+    # Load saved files metadata
+    saved_files = load_saved_files()
+    
     if file_id not in saved_files:
         return "File not found", 404
     
@@ -717,6 +763,9 @@ def download_file(file_id):
 @app.route('/delete-file/<file_id>', methods=['DELETE'])
 def delete_file(file_id):
     """Delete a saved file."""
+    # Load saved files metadata
+    saved_files = load_saved_files()
+    
     if file_id not in saved_files:
         return "File not found", 404
     
@@ -730,130 +779,70 @@ def delete_file(file_id):
     # Remove file from metadata
     del saved_files[file_id]
     
+    # Save updated metadata
+    save_saved_files(saved_files)
+    
     return "File deleted", 200
 
-@app.route('/combine-files', methods=['POST'])
-def combine_files():
-    """Combine multiple files into one CSV."""
-    data = request.json
-    file_ids = data.get('fileIds', [])
-    
-    if not file_ids or len(file_ids) < 2:
-        return "At least two files must be selected", 400
-    
-    # Check if all files exist
-    for file_id in file_ids:
-        if file_id not in saved_files:
-            return f"File {file_id} not found", 404
-    
-    # Create a new combined file
-    combined_id = str(uuid.uuid4())
-    current_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"combined_{current_time}_{combined_id}.csv"
-    filepath = os.path.join(SAVE_DIR, filename)
-    
-    # Combine files
-    combined_data = []
-    headers_set = set()
-    
-    # First pass: collect all headers
-    for file_id in file_ids:
-        file_path = saved_files[file_id]['filepath']
-        with open(file_path, 'r') as csvfile:
-            reader = csv.DictReader(csvfile)
-            for header in reader.fieldnames:
-                headers_set.add(header)
-    
-    headers = sorted(list(headers_set))
-    
-    # Second pass: combine data
-    for file_id in file_ids:
-        file_path = saved_files[file_id]['filepath']
-        with open(file_path, 'r') as csvfile:
-            reader = csv.DictReader(csvfile)
-            for row in reader:
-                # Create a new row with all headers
-                new_row = {header: row.get(header, '') for header in headers}
-                combined_data.append(new_row)
-    
-    # Write combined data
-    with open(filepath, 'w', newline='') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=headers)
-        writer.writeheader()
-        writer.writerows(combined_data)
-    
-    # Store combined file metadata
-    description = "Combined file from "
-    description += ", ".join([saved_files[file_id]['title'] for file_id in file_ids[:3]])
-    if len(file_ids) > 3:
-        description += f" and {len(file_ids) - 3} more"
-    
-    file_size = get_file_size(filepath)
-    preview = get_preview(filepath)
-    
-    saved_files[combined_id] = {
-        'id': combined_id,
-        'filename': filename,
-        'filepath': filepath,
-        'title': f"Combined Results ({len(combined_data)} records)",
-        'description': description,
-        'type': 'Combined',
-        'date': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        'size': file_size,
-        'preview': preview,
-        'condition': 'Multiple',
-        'cell_type': 'Multiple'
-    }
-    
-    # Return the combined file for download
-    return send_file(filepath, 
-                    mimetype='text/csv',
-                    as_attachment=True,
-                    download_name=filename)
-
-@app.route('/save-current/<result_id>', methods=['POST'])
+@app.route('/save_current_result/<result_id>', methods=['POST'])
 def save_current_result(result_id):
     """Save currently displayed results to downloads."""
-    # Check if results exist in the session
-    if not hasattr(request, 'session') or 'current_results' not in session:
-        return "No results to save", 400
-    
-    results = session['current_results']
-    
-    # Generate filename and save
-    current_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    search_type = request.form.get('search_type', 'query')
-    condition = request.form.get('condition', 'unknown')
-    cell_type = request.form.get('cell_type', 'unknown')
-    
-    filename = f"{search_type}_{condition}_{cell_type}_{current_time}_{result_id}.csv"
-    
-    if save_results_to_csv(results, filename):
-        # Store file metadata
-        filepath = os.path.join(SAVE_DIR, filename)
-        file_size = get_file_size(filepath)
-        preview = get_preview(filepath)
+    try:
+        # Check if results exist in the session
+        if 'current_results' not in session:
+            print("No results found in session")
+            return "No results to save", 400
         
-        title = request.form.get('title', f"{search_type.capitalize()} Results")
-        description = request.form.get('description', f"Search for {condition} in {cell_type} cells")
+        results = session['current_results']
         
-        saved_files[result_id] = {
-            'id': result_id,
-            'filename': filename,
-            'filepath': filepath,
-            'title': title,
-            'description': description,
-            'type': search_type.capitalize(),
-            'date': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            'size': file_size,
-            'preview': preview,
-            'condition': condition,
-            'cell_type': cell_type
-        }
+        # Generate filename and save
+        current_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        search_type = request.form.get('search_type', 'query')
+        condition = request.form.get('condition', 'unknown')
+        cell_type = request.form.get('cell_type', 'unknown')
         
-        return redirect(url_for('downloads'))
-    else:
-        return "Failed to save results", 500
+        filename = f"{search_type}_{condition}_{cell_type}_{current_time}_{result_id}.csv"
+        
+        if save_results_to_csv(results, filename):
+            # Store file metadata
+            filepath = os.path.join(SAVE_DIR, filename)
+            file_size = get_file_size(filepath)
+            preview = get_preview(filepath)
+            
+            title = f"{search_type.capitalize()} Results ({condition}, {cell_type})"
+            description = f"Search for {condition} in {cell_type} cells"
+            
+            # Load current saved files
+            saved_files = load_saved_files()
+            
+            # Add the new file
+            saved_files[result_id] = {
+                'id': result_id,
+                'filename': filename,
+                'filepath': filepath,
+                'title': title,
+                'description': description,
+                'type': search_type.capitalize(),
+                'date': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                'size': file_size,
+                'preview': preview,
+                'condition': condition,
+                'cell_type': cell_type
+            }
+            
+            # Save updated metadata
+            save_saved_files(saved_files)
+            
+            return redirect(url_for('downloads'))
+        else:
+            print("Failed to save results to CSV")
+            return "Failed to save results", 500
+    except Exception as e:
+        print(f"Error in save_current_result: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return f"Error: {str(e)}", 500
+
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -9,15 +9,16 @@
 </head>
 <body>
     <nav class="navbar">
-        <a href="#home" class="logo">
+        <a href="{{ url_for('index') }}" class="logo">
             <i class="fas fa-dna"></i>
             GeneInteract
         </a>
         <div class="nav-links">
             <a href="{{ url_for('index') }}">Home</a>
             <a href="{{ url_for('search_page') }}">Search</a>
+            <a href="{{ url_for('visualizations') }}">Visualizations</a>
             <a href="{{ url_for('guide') }}">Help</a>
-            <a href="{{ url_for('downloads') }}">Downloads</a>
+            <a href="{{ url_for('faq') }}">FAQ</a>
         </div>
     </nav>
 
@@ -26,7 +27,7 @@
         <section id="home" class="hero">
             <h1>Genomic Interactions Database</h1>
             <p>A comprehensive resource for exploring gene regulatory elements and their interactions across diverse biological contexts and disease states.</p>
-            <a href="{{ url_for('index') }}" class="button">
+            <a href="{{ url_for('search') }}" class="button">
                 <i class="fas fa-search"></i>
                 Start Exploring
             </a>
@@ -80,13 +81,11 @@
         <div class="footer-content">
             <div class="footer-section">
                 <h3>About</h3>
-                <a href="#about">About Us</a>
-                <a href="#team">Team</a>
+                <a href="{{ url_for('aboutus') }}">About Us</a>
             </div>
             <div class="footer-section">
                 <h3>Resources</h3>
                 <a href="{{ url_for('resources') }}">Data</a>
-                <a href="#tutorials">Tutorials</a>
             </div>
             <div class="footer-section">
                 <h3>Connect</h3>
@@ -95,7 +94,6 @@
             </div>
             <div class="footer-section">
                 <h3>Legal</h3>
-                <a href="#dataUsage">Data Usage</a>
                 <a href="#citations">Citations</a>
             </div>
         </div>

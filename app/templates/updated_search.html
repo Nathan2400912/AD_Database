@@ -16,8 +16,9 @@
         <div class="nav-links">
             <a href="{{ url_for('index') }}">Home</a>
             <a href="{{ url_for('search_page') }}">Search</a>
+            <a href="{{ url_for('visualizations') }}">Visualizations</a>
             <a href="{{ url_for('guide') }}">Help</a>
-            <a href="{{ url_for('downloads') }}">Downloads</a>
+            <a href="{{ url_for('faq') }}">FAQ</a>
         </div>
     </nav>
 
@@ -295,25 +296,6 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- Save Options and Submit Buttons -->
-                <div class="form-section">
-                    <h3 class="form-section-title">Result Options</h3>
-                    <div class="radio-group">
-                        <div class="radio-item">
-                            <input type="radio" id="save-view" name="save_option" value="view" checked>
-                            <label for="save-view">View results only</label>
-                        </div>
-                        <div class="radio-item">
-                            <input type="radio" id="save-save" name="save_option" value="save">
-                            <label for="save-save">Save results to download manager</label>
-                        </div>
-                        <div class="radio-item">
-                            <input type="radio" id="save-both" name="save_option" value="both">
-                            <label for="save-both">View and save results</label>
-                        </div>
-                    </div>
-                </div>
                 
                 <!-- Submit and Reset Buttons -->
                 <div class="search-actions">
@@ -339,9 +321,9 @@
                         <input type="hidden" name="search_type" value="{{ active_tab }}">
                         <input type="hidden" name="condition" value="{{ condition }}">
                         <input type="hidden" name="cell_type" value="{{ cell_type }}">
-                        <button type="submit" class="button">
+                        <!-- <button type="submit" class="button"> 
                             <i class="fas fa-save"></i> Save to Downloads
-                        </button>
+                        </button> -->
                     </form>
                     {% endif %}
                     <button class="button" onclick="exportTableToCSV()">

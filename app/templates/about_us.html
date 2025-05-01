@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>About Us - Genomic Interactions Database</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <nav class="navbar">
@@ -16,9 +16,9 @@
         <div class="nav-links">
             <a href="{{ url_for('index') }}">Home</a>
             <a href="{{ url_for('search_page') }}">Search</a>
-            <a href="{{ url_for('guide') }}">Guide</a>
+            <a href="{{ url_for('visualizations') }}">Visualizations</a>
+            <a href="{{ url_for('guide') }}">Help</a>
             <a href="{{ url_for('faq') }}">FAQ</a>
-            <a href="{{ url_for('about') }}" class="active">About Us</a>
         </div>
     </nav>
 
