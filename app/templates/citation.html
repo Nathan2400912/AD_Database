@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Us - Genomic Interactions Database</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="{{ url_for('index') }}" class="logo">
+            <i class="fas fa-dna"></i>
+            GeneInteract
+        </a>
+        <div class="nav-links">
+            <a href="{{ url_for('index') }}">Home</a>
+            <a href="{{ url_for('search_page') }}">Search</a>
+            <a href="{{ url_for('help') }}">Help</a>
+            <a href="{{ url_for('faq') }}">Downloads</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <section class="card">
+            <div class="hero">
+                <h1>Citation</h1>
+            </div>
+
+            <div class="form-section">
+                <h3 class="form-section-title">Project Information</h3>
+                <div class="logo-text-container">
+                    <p>This project was developed at Boston University as part of the course <strong>BF768 - Biological Databases Analysis</strong>.</p>
+                </div>
+            </div>
+        </section>
+    </div>
+</body>
+</html>
