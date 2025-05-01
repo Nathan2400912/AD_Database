@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Us - Genomic Interactions Database</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="{{ url_for('index') }}" class="logo">
+            <i class="fas fa-dna"></i>
+            GeneInteract
+        </a>
+        <div class="nav-links">
+            <a href="{{ url_for('index') }}">Home</a>
+            <a href="{{ url_for('search_page') }}">Search</a>
+            <a href="{{ url_for('help') }}">Help</a>
+            <a href="{{ url_for('faq') }}">Downloads</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <section class="card">
+            <div class="hero">
+                <h1>Contact Us</h1>
+                <p>Get in touch with our team for any inquiries or support requests</p>
+            </div>
+
+            <div class="form-section">
+                <h3 class="form-section-title">Our Contact Information</h3>
+                <p>If you have any questions or need assistance, feel free to reach out to us using the contact information below:</p>
+                <ul>
+                    <li><strong>Email:</strong> <a href="mailto:......com">.......com</a></li>
+                    <li><strong>Phone:</strong> +1 (xxx) xxx-xxxx</li>
+                </ul>
+            </div>
+
+            <div class="form-section">
+                <h3 class="form-section-title">Contact Our Team</h3>
+                <div class="accordion">
+                    <div class="accordion-header" onclick="toggleAccordion('contact1', this)">
+                        <span>Master Student Developers</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div id="contact1" class="accordion-content">
+                        <p>For development-related inquiries, you can contact our student developers:</p>
+                        <ul>
+                            <li><strong>Nathan Wong</strong><br>Email: <a href="mailto:nhwon@bu.edu">nhwon@bu.edu</a></li>
+                            <li><strong>Tyler Kwok</strong><br>Email: <a href="mailto:yhkwok@bu.edu">yhkwok@bu.edu</a></li>
+                            <li><strong>Elaine Huang</strong><br>Email: <a href="mailto:ehuang30@bu.edu">ehuang30@bu.edu</a></li>
+                            <li><strong>Olivia Chen</strong><br>Email: <a href="mailto:schen295@bu.edu">schen295@bu.edu</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h3 class="form-section-title">Send Us a Message</h3>
+                <form action="/submit-contact-form" method="POST">
+                    <label for="name">Name:</label>
+                    <input type="text" id="name" name="name" required>
+                    
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" name="email" required>
+                    
+                    <label for="message">Message:</label>
+                    <textarea id="message" name="message" rows="4" required></textarea>
+                    
+                    <button type="submit">Submit</button>
+                </form>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        function toggleAccordion(id, header) {
+            const content = document.getElementById(id);
+            const icon = header.querySelector('i');
+            content.classList.toggle('active');
+            icon.classList.toggle('rotate-180');
+        }
+    </script>
+</body>
+</html>
