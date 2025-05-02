@@ -19,6 +19,7 @@
             <a href="{{ url_for('visualizations') }}">Visualizations</a>
             <a href="{{ url_for('guide') }}">Help</a>
             <a href="{{ url_for('faq') }}">FAQ</a>
+            <a href="{{ url_for('github') }}">GitHub</a>
         </div>
     </nav>
 
@@ -89,12 +90,11 @@
             </div>
             <div class="footer-section">
                 <h3>Connect</h3>
-                <a href="#contact">Contact</a>
-                <a href="#github">GitHub</a>
+                <a href="{{ url_for('contactus') }}">Contact</a>
             </div>
             <div class="footer-section">
                 <h3>Legal</h3>
-                <a href="#citations">Citations</a>
+                <a href="{{ url_for('citation') }}">Citations</a>
             </div>
         </div>
     </footer>

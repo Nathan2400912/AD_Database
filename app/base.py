@@ -516,6 +516,18 @@ def aboutus():
 def visualizations():
     return render_template('visualizations.html')
 
+@app.route('/github')
+def github():
+    return render_template('github.html')
+
+@app.route('/contactus')
+def contactus():
+    return render_template('contact_us.html')
+
+@app.route('/citation')
+def citation():
+    return render_template('citation.html')
+
 @app.route('/search', methods=['GET'])
 def search():
     # Debug information
