@@ -40,7 +40,7 @@ SAVE_METADATA = os.path.join(SAVE_DIR, 'saved_files.json')
 saved_files = {}
 
 def connect_database(hostname='bioed-new.bu.edu', port=4253, database='Team7', 
-                    username='schen295', password='19980220'):
+                    username='', password=''):
     """Connect to the MariaDB database."""
     try:
         connection = mariadb.connect(
