@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Genomic Interactions Database - Visualizations</title>
+    <!-- Load jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Load Google Charts -->
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <!-- Load Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="{{ url_for('index') }}" class="logo">
+            <i class="fas fa-dna"></i>
+            GeneInteract
+        </a>
+        <div class="nav-links">
+            <a href="{{ url_for('index') }}">Home</a>
+            <a href="{{ url_for('search_page') }}">Search</a>
+            <a href="{{ url_for('visualizations') }}" class="active">Visualizations</a>
+            <a href="{{ url_for('guide') }}">Help</a>
+            <a href="{{ url_for('faq') }}">FAQ</a>
+            <a href="{{ url_for('github') }}">GitHub</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>Gene Expression Analysis Dashboard</h1>
+        <p>This page allows you to visualize differential gene expression data using interactive plots to gain insights into genomic interactions.</p>
+
+        <div class="card">
+            <h2><i class="fas fa-chart-scatter"></i> Volcano Plot for Gene Expression</h2>
+            <p>Visualize the distribution of gene expression changes and statistical significance.</p>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label for="condition-select">Select Condition:</label>
+                    <select id="condition-select"></select>
+                </div>
+                <div class="form-group">
+                    <label for="cell-type-select">Select Cell Type:</label>
+                    <select id="cell-type-select"></select>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="form-group">
+                    <label for="padj-threshold">Adjusted P-value Threshold:</label>
+                    <input type="number" id="padj-threshold" value="0.05" min="0" max="1" step="0.01">
+                    <span class="example">Default: 0.05</span>
+                </div>
+                <div class="form-group">
+                    <label for="log2fc-threshold">Log2 Fold Change Threshold:</label>
+                    <input type="number" id="log2fc-threshold" value="1" min="0" step="0.1">
+                    <span class="example">Default: 1 (2-fold change)</span>
+                </div>
+            </div>
+
+            <div>
+                <button class="button" id="volcano-plot-button"><i class="fas fa-play"></i> Generate Volcano Plot</button>
+            </div>
+            <div id="volcano-plot-container" class="visualization-container"></div>
+            <div id="volcano-plot-error" class="error-message"></div>
+        </div>
+
+        <div class="card">
+            <h2><i class="fas fa-project-diagram"></i> Gene Set Enrichment Analysis (FGSEA) Plot</h2>
+            <p>Explore enriched biological pathways and their statistical significance.</p>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label for="fgsea-condition-select">Select Condition:</label>
+                    <select id="fgsea-condition-select"></select>
+                </div>
+                <div class="form-group">
+                    <label for="fgsea-cell-type-select">Select Cell Type:</label>
+                    <select id="fgsea-cell-type-select"></select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="pathway-count">Number of Pathways to Display:</label>
+                <input type="number" id="pathway-count" value="10" min="5" max="30">
+                <span class="example">Range: 5-30 pathways</span>
+            </div>
+
+            <div>
+                <button class="button" id="fgsea-plot-button"><i class="fas fa-play"></i> Generate FGSEA Plot</button>
+            </div>
+            <div id="fgsea-plot-container" class="visualization-container"></div>
+            <div id="fgsea-plot-error" class="error-message"></div>
+        </div>
+
+        <div class="card">
+            <h2><i class="fas fa-dna"></i> CRE-Gene Correlation Scatter Plot</h2>
+            <p>Visualize the relationship between CRE (Cis-Regulatory Element) and gene expression changes.</p>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label for="scatter-condition-select">Select Condition:</label>
+                    <select id="scatter-condition-select"></select>
+                </div>
+                <div class="form-group">
+                    <label for="scatter-cell-type-select">Select Cell Type:</label>
+                    <select id="scatter-cell-type-select"></select>
+                </div>
+            </div>
+
+            <div>
+                <button class="button" id="scatter-plot-button"><i class="fas fa-play"></i> Generate CRE-Gene Scatter Plot</button>
+            </div>
+            <div id="cre-gene-scatter-plot" class="visualization-container"></div>
+            <div id="scatter-error-message" class="error-message"></div>
+        </div>
+    </div>
+
+    <script>
+        // Define base URL for all API calls
+        // If your Flask app is running at the root, this should be empty
+        const BASE_API_URL = '/students_25/yhkwok/HW3_folder/yhkwok_visualization';
+        
+        // Load Google Charts with visualization and corechart packages
+        google.charts.load('current', {
+            'packages': ['corechart'],
+            'callback': function() {
+                console.log("Google Charts loaded successfully");
+            }
+        });
+        
+        $(document).ready(function() {
+            // Set up error handling
+            window.onerror = function(message, source, lineno, colno, error) {
+                console.error("JavaScript Error:", message, "at", source, ":", lineno);
+                alert("A JavaScript error occurred. See console for details.");
+            };
+            
+            // Load conditions and cell types for dropdowns
+            loadConditions();
+            loadCellTypes();
+            
+            // Button click events
+            $("#volcano-plot-button").click(function() {
+                generateVolcanoPlot();
+            });
+            
+            $("#fgsea-plot-button").click(function() {
+                generateFgseaPlot();
+            });
+            
+            $("#scatter-plot-button").click(function() {
+                const condition = $("#scatter-condition-select").val();
+                const cellType = $("#scatter-cell-type-select").val();
+                createCREGeneScatterPlot(condition, cellType);
+            });
+
+            // Input validation
+            $("#pathway-count").on("input", function() {
+                var value = $(this).val();
+                if (value < 0) {
+                    $(this).val(0);
+                } else if (value > 50) {
+                    $(this).val(50);
+                }
+            });
+            
+            $("#padj-threshold").on("input", function() {
+                var value = parseFloat($(this).val());
+                if (value < 0) {
+                    $(this).val(0);
+                } else if (value > 1) {
+                    $(this).val(1);
+                }
+            });
+            
+            $("#log2fc-threshold").on("input", function() {
+                var value = parseFloat($(this).val());
+                if (value < 0) {
+                    $(this).val(0);
+                }
+            });
+
+            // Synchronize dropdown selections
+            $("#condition-select").change(function() {
+                $("#fgsea-condition-select").val($(this).val());
+                $("#scatter-condition-select").val($(this).val());
+            });
+            
+            $("#cell-type-select").change(function() {
+                $("#fgsea-cell-type-select").val($(this).val());
+                $("#scatter-cell-type-select").val($(this).val());
+            });
+            
+            $("#fgsea-condition-select").change(function() {
+                $("#condition-select").val($(this).val());
+                $("#scatter-condition-select").val($(this).val());
+            });
+            
+            $("#fgsea-cell-type-select").change(function() {
+                $("#cell-type-select").val($(this).val());
+                $("#scatter-cell-type-select").val($(this).val());
+            });
+        });
+        
+        // Load conditions for dropdown
+        function loadConditions() {
+            $.ajax({
+                url: BASE_API_URL + '/get_conditions',
+                type: 'GET',
+                dataType: 'json',
+                timeout: 10000,
+                success: function(data) {
+                    const volcanoDropdown = $("#condition-select");
+                    const fgseaDropdown = $("#fgsea-condition-select");
+                    const scatterDropdown = $("#scatter-condition-select");
+                    
+                    volcanoDropdown.empty();
+                    fgseaDropdown.empty();
+                    scatterDropdown.empty();
+
+                    if (data.error) {
+                        console.error("Error loading conditions:", data.error);
+                        return;
+                    }
+                    
+                    $.each(data, function(index, condition) {
+                        const option = $('<option></option>').val(condition).text(condition);
+                        volcanoDropdown.append(option.clone());
+                        fgseaDropdown.append(option.clone());
+                        scatterDropdown.append(option.clone());
+                    });
+                    
+                    if (data.length > 0) {
+                        const firstCondition = data[0];
+                        volcanoDropdown.val(firstCondition);
+                        fgseaDropdown.val(firstCondition);
+                        scatterDropdown.val(firstCondition);
+                    }
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.error("Failed to load conditions:", textStatus, errorThrown);
+                    alert("Error loading condition data. Please refresh the page and try again.");
+                }
+            });
+        }
+        
+        // Load cell types for dropdown
+        function loadCellTypes() {
+            $.ajax({
+                url: BASE_API_URL + '/get_cell_types',
+                type: 'GET',
+                dataType: 'json',
+                timeout: 10000,
+                success: function(data) {
+                    const volcanoDropdown = $("#cell-type-select");
+                    const fgseaDropdown = $("#fgsea-cell-type-select");
+                    const scatterDropdown = $("#scatter-cell-type-select");
+                    
+                    volcanoDropdown.empty();
+                    fgseaDropdown.empty();
+                    scatterDropdown.empty();
+
+                    if (data.error) {
+                        console.error("Error loading cell types:", data.error);
+                        return;
+                    }
+                    
+                    $.each(data, function(index, cellType) {
+                        const option = $('<option></option>').val(cellType).text(cellType);
+                        volcanoDropdown.append(option.clone());
+                        fgseaDropdown.append(option.clone());
+                        scatterDropdown.append(option.clone());
+                    });
+                    
+                    if (data.length > 0) {
+                        const firstCellType = data[0];
+                        volcanoDropdown.val(firstCellType);
+                        fgseaDropdown.val(firstCellType);
+                        scatterDropdown.val(firstCellType);
+                    }
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.error("Failed to load cell types:", textStatus, errorThrown);
+                    alert("Error loading cell type data. Please refresh the page and try again.");
+                }
+            });
+        }
+        
+        // Generate Volcano Plot
+        function generateVolcanoPlot() {
+            const conditionName = $("#condition-select").val();
+            const cellType = $("#cell-type-select").val();
+            const padjThreshold = $("#padj-threshold").val();
+            const log2fcThreshold = $("#log2fc-threshold").val();
+            
+            if (!conditionName || !cellType) {
+                $("#volcano-plot-error").text("Please select both a condition and cell type.");
+                return;
+            }
+            
+            $("#volcano-plot-container").empty();
+            $("#volcano-plot-error").text("");
+            $("#volcano-plot-container").html('<div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading data, please wait...</div>');
+            
+            $.ajax({
+                url: BASE_API_URL + '/volcano_plot',
+                type: 'POST',
+                data: {
+                    condition_name: conditionName,
+                    cell_type: cellType
+                },
+                dataType: 'json',
+                timeout: 30000,
+                success: function(data) {
+                    $("#volcano-plot-container").empty();
+                    
+                    if (data.error) {
+                        $("#volcano-plot-error").text("Server error: " + data.error);
+                        return;
+                    }
+                    
+                    if (data.length === 0) {
+                        $("#volcano-plot-container").html('<div class="no-data">No data available for the selected condition and cell type.</div>');
+                        return;
+                    }
+                    
+                    drawVolcanoPlot(data, conditionName, cellType, padjThreshold, log2fcThreshold);
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.error("AJAX Error:", textStatus, errorThrown);
+                    $("#volcano-plot-container").empty();
+                    $("#volcano-plot-error").text(`Error: ${textStatus}. ${errorThrown || "Connection failed"}. Status code: ${jqXHR.status}`);
+                }
+            });
+        }
+        
+        // Draw the volcano plot
+        function drawVolcanoPlot(data, conditionName, cellType, padjThreshold, log2fcThreshold) {
+            try {
+                // Convert parameters to numbers with defaults if invalid
+                const adjPThreshold = Math.max(0, Math.min(1, parseFloat(padjThreshold) || 0.05));
+                const fcThreshold = Math.max(0, parseFloat(log2fcThreshold) || 1);
+                
+                // Format data for Google Charts
+                var chartData = new google.visualization.DataTable();
+                chartData.addColumn('number', 'Log2 Fold Change');
+                chartData.addColumn('number', '-Log10(P-value)');
+                chartData.addColumn({'type': 'string', 'role': 'tooltip', 'p': {'html': true}});
+                chartData.addColumn({'type': 'string', 'role': 'style'});
+                
+                // Track max values for chart scaling
+                var maxLog2FC = 0;
+                var maxNegLog10P = 0;
+                
+                // Add rows from the data
+                data.forEach(function(item) {
+                    // Validate data fields, use defaults for missing values
+                    const gene = item.gene_symbol || "Unknown";
+                    const log2fc = parseFloat(item.log2foldchange) || 0;
+                    const pValue = parseFloat(item.p_value) || 1;
+                    const adjP = parseFloat(item.padj) || 1;
+                    
+                    // Skip exact zeros instead of setting a limit
+                    if (pValue === 0) {
+                        return;
+                    }
+                    
+                    // Calculate -log10(p-value) for non-zero p-values
+                    const negLog10P = -Math.log10(pValue);
+                    
+                    // Update max values
+                    maxLog2FC = Math.max(maxLog2FC, Math.abs(log2fc));
+                    maxNegLog10P = Math.max(maxNegLog10P, negLog10P);
+                    
+                    // Determine point color based on user-defined thresholds
+                    var color;
+                    var significant = adjP < adjPThreshold;
+                    
+                    if (significant && log2fc > fcThreshold) {
+                        color = '#FF5252'; // Significantly upregulated - using your color palette
+                    } else if (significant && log2fc < -fcThreshold) {
+                        color = '#536DFE'; // Significantly downregulated - using your color palette
+                    } else {
+                        color = '#9E9E9E'; // Not significant or small fold change
+                    }
+                    
+                    // Create HTML tooltip
+                    var tooltip = '<div style="padding:10px;max-width:300px; background-color:white; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.15);">' +
+                        '<strong>Gene:</strong> ' + gene + '<br>' +
+                        '<strong>Log2 Fold Change:</strong> ' + log2fc.toFixed(2) + '<br>' +
+                        '<strong>P-value:</strong> ' + (pValue < 0.001 ? pValue.toExponential(2) : pValue.toFixed(3)) + '<br>' +
+                        '<strong>Adj P-value:</strong> ' + (adjP < 0.001 ? adjP.toExponential(2) : adjP.toFixed(3)) +
+                        '</div>';
+                    
+                    chartData.addRow([log2fc, negLog10P, tooltip, color]);
+                });
+                
+                // If no data points remain after filtering, show an error
+                if (chartData.getNumberOfRows() === 0) {
+                    $("#volcano-plot-container").html('<div class="no-data">No data points to display after filtering out zero p-values.</div>');
+                    return;
+                }
+                
+                // Add some padding to the chart bounds
+                maxLog2FC = Math.max(maxLog2FC * 1.1, 2); // At least ±2 for log2FC
+                maxNegLog10P = maxNegLog10P * 1.1;
+                
+                // Set chart options
+                var options = {
+                    title: `Volcano Plot for ${conditionName} in ${cellType}`,
+                    titleTextStyle: {
+                        fontSize: 18,
+                        bold: true,
+                        color: '#328E6E' // Using your primary color
+                    },
+                    hAxis: {
+                        title: 'Log2 Fold Change',
+                        titleTextStyle: {italic: false, bold: true},
+                        minValue: -maxLog2FC,
+                        maxValue: maxLog2FC,
+                        gridlines: {color: '#E8EBF0'} // Using your gray color
+                    },
+                    vAxis: {
+                        title: '-Log10(P-value)',
+                        titleTextStyle: {italic: false, bold: true},
+                        minValue: 0,
+                        maxValue: maxNegLog10P,
+                        gridlines: {color: '#E8EBF0'} // Using your gray color
+                    },
+                    legend: 'none',
+                    tooltip: {isHtml: true},
+                    pointSize: 4,
+                    backgroundColor: 'white',
+                    chartArea: {
+                        width: '80%',
+                        height: '80%',
+                        backgroundColor: {
+                            stroke: '#E8EBF0', // Using your gray color
+                            strokeWidth: 1
+                        }
+                    }
+                };
+                
+                // Draw the chart
+                var chart = new google.visualization.ScatterChart(document.getElementById('volcano-plot-container'));
+                chart.draw(chartData, options);
+                
+                // Add a legend below the chart that reflects the user's threshold settings
+                $("#volcano-plot-container").append(
+                    '<div class="legend">' +
+                    `<span style="color:#FF5252;font-weight:bold;">●</span> Significantly upregulated (log2FC > ${fcThreshold}, adj.p < ${adjPThreshold}) | ` +
+                    `<span style="color:#536DFE;font-weight:bold;">●</span> Significantly downregulated (log2FC < -${fcThreshold}, adj.p < ${adjPThreshold}) | ` +
+                    '<span style="color:#9E9E9E;font-weight:bold;">●</span> Not significant or small change | ' +
+                    '<span>Note: Data points with p-value = 0 are excluded</span>' +
+                    '</div>'
+                );
+                
+            } catch (e) {
+                console.error("Error drawing volcano plot:", e);
+                $("#volcano-plot-error").text("An error occurred while drawing the plot: " + e.message);
+            }
+        }
+        
+        // Generate FGSEA Plot
+        function generateFgseaPlot() {
+            const conditionName = $("#fgsea-condition-select").val();
+            const cellType = $("#fgsea-cell-type-select").val();
+            const pathwayCount = $("#pathway-count").val();
+            
+            if (!conditionName || !cellType) {
+                $("#fgsea-plot-error").text("Please select both a condition and cell type.");
+                return;
+            }
+            
+            $("#fgsea-plot-container").empty();
+            $("#fgsea-plot-error").text("");
+            $("#fgsea-plot-container").html('<div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading data, please wait...</div>');
+            
+            $.ajax({
+                url: BASE_API_URL + '/fgsea_plot',
+                type: 'POST',
+                data: {
+                    condition_name: conditionName,
+                    cell_type: cellType,
+                    pathway_count: pathwayCount
+                },
+                dataType: 'json',
+                timeout: 30000,
+                success: function(data) {
+                    $("#fgsea-plot-container").empty();
+                    
+                    if (data.error) {
+                        $("#fgsea-plot-error").text("Server error: " + data.error);
+                        return;
+                    }
+                    
+                    if (data.length === 0) {
+                        $("#fgsea-plot-container").html('<div class="no-data">No enrichment data available for the selected condition and cell type.</div>');
+                        return;
+                    }
+                    
+                    drawFgseaPlot(data, conditionName, cellType);
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.error("AJAX Error:", textStatus, errorThrown);
+                    $("#fgsea-plot-container").empty();
+                    $("#fgsea-plot-error").text(`Error: ${textStatus}. ${errorThrown || "Connection failed"}. Status code: ${jqXHR.status}`);
+                }
+            });
+        }
+        
+        // Draw the FGSEA plot
+        function drawFgseaPlot(data, conditionName, cellType) {
+            try {
+                // Format data for Google Charts
+                var chartData = new google.visualization.DataTable();
+                chartData.addColumn('string', 'Pathway');
+                chartData.addColumn('number', 'Enrichment Score');
+                chartData.addColumn({'type': 'string', 'role': 'tooltip', 'p': {'html': true}});
+                chartData.addColumn({'type': 'string', 'role': 'style'});
+                
+                // Split data into upregulated and downregulated
+                var upRegulatedPathways = [];
+                var downRegulatedPathways = [];
+                
+                // Process each pathway and split into up/down regulated
+                data.forEach(function(item) {
+                    const geneCount = parseInt(item.gene_count) || 0;
+                    const upRegulated = parseInt(item.up_regulated) || 0;
+                    const downRegulated = parseInt(item.down_regulated) || 0;
+                    const avgFoldChange = parseFloat(item.avg_fold_change) || 0;
+                    const negLogPadj = parseFloat(item.neg_log_padj) || 0;
+                    
+                    // Calculate an enrichment score based on gene counts and fold changes
+                    var enrichmentScore = avgFoldChange * Math.log10(Math.max(geneCount, 1));
+                    
+                    // Determine if pathway is up or down regulated
+                    var isUpRegulated = upRegulated > downRegulated;
+                    
+                    // Adjust score to always be positive for visualization clarity
+                    enrichmentScore = Math.abs(enrichmentScore);
+                    
+                    // Add to the appropriate array
+                    if (isUpRegulated) {
+                        upRegulatedPathways.push({
+                            name: item.pathway_name || "Unknown Pathway",
+                            score: enrichmentScore,
+                            geneCount: geneCount,
+                            upRegulated: upRegulated,
+                            downRegulated: downRegulated,
+                            avgFoldChange: avgFoldChange,
+                            negLogPadj: negLogPadj
+                        });
+                    } else {
+                        downRegulatedPathways.push({
+                            name: item.pathway_name || "Unknown Pathway",
+                            score: -enrichmentScore, // Negative score for downregulated
+                            geneCount: geneCount,
+                            upRegulated: upRegulated,
+                            downRegulated: downRegulated,
+                            avgFoldChange: avgFoldChange,
+                            negLogPadj: negLogPadj
+                        });
+                    }
+                });
+                
+                // Sort each group by significance
+                upRegulatedPathways.sort((a, b) => b.negLogPadj - a.negLogPadj);
+                downRegulatedPathways.sort((a, b) => b.negLogPadj - a.negLogPadj);
+                
+                // Add the rows to the chart data
+                var maxAbsEnrichment = 0;
+                
+                // Process upregulated pathways first
+                upRegulatedPathways.forEach(function(pathway) {
+                    // Format pathway name (truncate if too long)
+                    var pathwayName = pathway.name;
+                    if (pathwayName.length > 40) {
+                        pathwayName = pathwayName.substring(0, 37) + '...';
+                    }
+                    
+                    // Create HTML tooltip
+                    var tooltip = '<div style="padding:10px; background-color:white; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.15);">' +
+                        '<strong>Pathway:</strong> ' + pathway.name + '<br>' +
+                        '<strong>Gene Count:</strong> ' + pathway.geneCount + '<br>' +
+                        '<strong>Up-regulated:</strong> ' + pathway.upRegulated + '<br>' +
+                        '<strong>Down-regulated:</strong> ' + pathway.downRegulated + '<br>' +
+                        '<strong>Avg. Fold Change:</strong> ' + pathway.avgFoldChange.toFixed(2) + '<br>' +
+                        '<strong>-log10(adj.P):</strong> ' + pathway.negLogPadj.toFixed(2) +
+                        '</div>';
+                    
+                    chartData.addRow([pathwayName, pathway.score, tooltip, '#FF5252']);
+                    maxAbsEnrichment = Math.max(maxAbsEnrichment, Math.abs(pathway.score));
+                });
+                
+                // Then process downregulated pathways
+                downRegulatedPathways.forEach(function(pathway) {
+                    // Format pathway name (truncate if too long)
+                    var pathwayName = pathway.name;
+                    if (pathwayName.length > 40) {
+                        pathwayName = pathwayName.substring(0, 37) + '...';
+                    }
+                    
+                    // Create HTML tooltip
+                    var tooltip = '<div style="padding:10px; background-color:white; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.15);">' +
+                        '<strong>Pathway:</strong> ' + pathway.name + '<br>' +
+                        '<strong>Gene Count:</strong> ' + pathway.geneCount + '<br>' +
+                        '<strong>Up-regulated:</strong> ' + pathway.upRegulated + '<br>' +
+                        '<strong>Down-regulated:</strong> ' + pathway.downRegulated + '<br>' +
+                        '<strong>Avg. Fold Change:</strong> ' + pathway.avgFoldChange.toFixed(2) + '<br>' +
+                        '<strong>-log10(adj.P):</strong> ' + pathway.negLogPadj.toFixed(2) +
+                        '</div>';
+                    
+                    chartData.addRow([pathwayName, pathway.score, tooltip, '#536DFE']);
+                    maxAbsEnrichment = Math.max(maxAbsEnrichment, Math.abs(pathway.score));
+                });
+                
+                // Add some padding to the chart bounds
+                maxAbsEnrichment = maxAbsEnrichment * 1.1;
+                
+                // Set chart options
+                var options = {
+                    title: `FGSEA Plot for ${conditionName} in ${cellType}`,
+                    titleTextStyle: {
+                        fontSize: 18,
+                        bold: true,
+                        color: '#328E6E' // Using your primary color
+                    },
+                    height: 500,
+                    bar: {groupWidth: '80%'},
+                    legend: {position: 'none'},
+                    hAxis: {
+                        title: 'Enrichment Score',
+                        titleTextStyle: {italic: false, bold: true},
+                        minValue: -maxAbsEnrichment,
+                        maxValue: maxAbsEnrichment,
+                        gridlines: {color: '#E8EBF0'} // Using your gray color
+                    },
+                    tooltip: {isHtml: true},
+                    backgroundColor: 'white',
+                    chartArea: {
+                        width: '60%',
+                        height: '80%',
+                        backgroundColor: {
+                            stroke: '#E8EBF0', // Using your gray color
+                            strokeWidth: 1
+                        }
+                    }
+                };
+                
+                // Draw the chart
+                var chart = new google.visualization.BarChart(document.getElementById('fgsea-plot-container'));
+                chart.draw(chartData, options);
+                
+                // Create a more informative legend
+                var legendText = '';
+                if (upRegulatedPathways.length > 0) {
+                    legendText += `<span style="color:#FF5252;font-weight:bold;">■</span> Up-regulated pathways (${upRegulatedPathways.length}) `;
+                }
+                if (downRegulatedPathways.length > 0) {
+                    if (upRegulatedPathways.length > 0) {
+                        legendText += '| ';
+                    }
+                    legendText += `<span style="color:#536DFE;font-weight:bold;">■</span> Down-regulated pathways (${downRegulatedPathways.length})`;
+                }
+                
+                // Add the legend below the chart
+                $("#fgsea-plot-container").append(
+                    '<div class="legend">' +
+                    legendText +
+                    '<br>Pathways are sorted by statistical significance within each group. ' +
+                    'Bar length represents enrichment score (combination of fold change magnitude and number of genes).' +
+                    '</div>'
+                );
+                
+            } catch (e) {
+                console.error("Error drawing FGSEA plot:", e);
+                $("#fgsea-plot-error").text("An error occurred while drawing the plot: " + e.message);
+            }
+        }
+
+        // Create CRE-Gene Scatter Plot
+        function createCREGeneScatterPlot(condition, cellType) {
+            // Show loading indicator
+            $("#cre-gene-scatter-plot").html('<div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading plot data...</div>');
+            $("#scatter-error-message").text("");
+            
+            $.ajax({
+                url: BASE_API_URL + '/cre_gene_scatter',
+                type: 'POST',
+                data: {
+                    condition_name: condition,
+                    cell_type: cellType
+                },
+                dataType: 'json',
+                timeout: 30000,
+                success: function(data) {
+                    if (data.error) {
+                        $("#scatter-error-message").text("Server error: " + data.error);
+                        $("#cre-gene-scatter-plot").empty();
+                        return;
+                    }
+                    
+                    if (data.length === 0) {
+                        $("#cre-gene-scatter-plot").html('<div class="no-data">No data available for the selected condition and cell type.</div>');
+                        return;
+                    }
+                    
+                    // Prepare data for plotting
+                    const plotData = data.map(item => ({
+                        x: parseFloat(item.gene_log2fc) || 0,
+                        y: parseFloat(item.cre_log2fc) || 0,
+                        gene: item.gene_symbol || "Unknown",
+                        gene_padj: parseFloat(item.gene_padj) || 1,
+                        cre_padj: parseFloat(item.cre_padj) || 1,
+                        distance: parseInt(item.distance_to_TSS) || 0,
+                        // Use -log10 of gene p-value for coloring
+                        negLogP: -Math.log10(parseFloat(item.gene_padj || 1))
+                    }));
+                    
+                    // Sort by p-value to ensure most significant points are on top
+                    plotData.sort((a, b) => a.gene_padj - b.gene_padj);
+                    
+                    // Create a single trace with color mapping
+                    const trace = {
+                        x: plotData.map(p => p.x),
+                        y: plotData.map(p => p.y),
+                        mode: 'markers',
+                        type: 'scatter',
+                        marker: {
+                            size: 8,
+                            // Use a color scale based on gene p-value
+                            color: plotData.map(p => p.negLogP),
+                            colorscale: [
+                                [0, '#9E9E9E'],    // Not significant (high p-value)
+                                [0.3, '#67AE6E'],  // Moderately significant - using your secondary color
+                                [0.7, '#FF9800'],  // Very significant - using orange
+                                [1, '#FF5252']     // Extremely significant - using red
+                            ],
+                            colorbar: {
+                                title: '-log10(Gene p-adj)',
+                                thickness: 20,
+                                len: 0.5
+                            }
+                        },
+                        text: plotData.map(p =>
+                            `<b>Gene:</b> ${p.gene}<br>` +
+                            `<b>Gene log2FC:</b> ${p.x.toFixed(2)}<br>` +
+                            `<b>CRE log2FC:</b> ${p.y.toFixed(2)}<br>` +
+                            `<b>Gene p-adj:</b> ${p.gene_padj.toExponential(2)}<br>` +
+                            `<b>Distance to TSS:</b> ${p.distance} bp`
+                        ),
+                        hoverinfo: 'text'
+                    };
+                    
+                    // Create the layout for the plot
+                    const layout = {
+                        title: `CRE vs Gene Log2 Fold Change (${condition}, ${cellType})`,
+                        titlefont: {
+                            size: 18,
+                            color: '#328E6E' // Using your primary color
+                        },
+                        xaxis: {
+                            title: 'Gene Log2 Fold Change',
+                            titlefont: {
+                                color: '#4A5568' // Using your dark gray color
+                            },
+                            zeroline: true,
+                            zerolinecolor: '#969696',
+                            zerolinewidth: 1,
+                            gridcolor: '#E8EBF0' // Using your gray color
+                        },
+                        yaxis: {
+                            title: 'CRE Log2 Fold Change',
+                            titlefont: {
+                                color: '#4A5568' // Using your dark gray color
+                            },
+                            zeroline: true,
+                            zerolinecolor: '#969696',
+                            zerolinewidth: 1,
+                            gridcolor: '#E8EBF0' // Using your gray color
+                        },
+                        hovermode: 'closest',
+                        paper_bgcolor: 'white',
+                        plot_bgcolor: 'white',
+                        margin: {
+                            l: 60,
+                            r: 80, // Increased right margin for colorbar
+                            t: 80,
+                            b: 60
+                        }
+                    };
+                    
+                    // Clear the loading indicator and plot the data
+                    $("#cre-gene-scatter-plot").empty();
+                    Plotly.newPlot('cre-gene-scatter-plot', [trace], layout, {responsive: true});
+                    
+                    // Add a note about the color scale
+                    $("#cre-gene-scatter-plot").append(
+                        '<div class="legend">' +
+                        'Points are colored by gene adjusted p-value significance (-log10 scale). ' +
+                        'Gray: less significant, Red: highly significant. ' +
+                        'Hover over points to see detailed information.' +
+                        '</div>'
+                    );
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching CRE-Gene scatter plot data:', errorThrown);
+                    $("#cre-gene-scatter-plot").empty();
+                    $("#scatter-error-message").text(`Error: ${textStatus}. ${errorThrown || "Connection failed"}. Status code: ${jqXHR.status}`);
+                }
+            });
+        }
+    </script>
+</body>
+</html>

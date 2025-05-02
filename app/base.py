@@ -12,6 +12,8 @@ import uuid
 import shutil
 from werkzeug.utils import secure_filename
 import tempfile
+import sys
+import traceback
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
@@ -854,6 +856,286 @@ def save_current_result(result_id):
         import traceback
         traceback.print_exc()
         return f"Error: {str(e)}", 500
+
+@app.route('/students_25/yhkwok/HW3_folder/yhkwok_visualization/volcano_plot', methods=['POST'])
+@app.route('/volcano_plot', methods=['POST'])
+def volcano_plot():
+    if request.method == 'POST':
+        condition_name = request.form.get('condition_name')
+        cell_type = request.form.get('cell_type')
+        
+        if not condition_name or not cell_type:
+            return jsonify([])
+        
+        conn = None
+        cursor = None
+        try:
+            conn = connect_database()
+            cursor = conn.cursor(dictionary=True)  
+            
+            query = """
+            SELECT g.gene_symbol, de.log2foldchange, de.p_value, de.padj
+            FROM Differential_Expression de
+            JOIN Genes g ON de.gid = g.gid
+            JOIN Conditions c ON de.cdid = c.cdid
+            JOIN Cell_Type ct ON de.cell_id = ct.cell_id
+            WHERE c.name = ? AND ct.cell = ?
+            ORDER BY g.gene_symbol
+            """
+            
+            cursor.execute(query, (condition_name, cell_type))
+            results = cursor.fetchall()
+            
+            return jsonify(results)
+        
+        except Exception as e:
+            return jsonify({"error": f"Database error occurred: {str(e)}"}), 500
+            
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
+            
+    return jsonify([])
+
+@app.route('/students_25/yhkwok/HW3_folder/yhkwok_visualization/fgsea_plot', methods=['POST'])
+@app.route('/fgsea_plot', methods=['POST'])
+def fgsea_plot():
+    if request.method == 'POST':
+        condition_name = request.form.get('condition_name')
+        cell_type = request.form.get('cell_type')
+        pathway_count = request.form.get('pathway_count', 10)
+        
+        try:
+            pathway_count = int(pathway_count)
+            if pathway_count < 1:
+                pathway_count = 10
+            elif pathway_count > 50:
+                pathway_count = 50
+        except ValueError:
+            pathway_count = 10
+            
+        if not condition_name or not cell_type:
+            return jsonify([])
+        
+        conn = None
+        cursor = None
+        try:
+            conn = connect_database()
+            cursor = conn.cursor(dictionary=True)
+            
+            up_query = """
+            SELECT 
+                bp.name AS pathway_name, 
+                COUNT(DISTINCT g.gid) AS gene_count,
+                SUM(CASE WHEN de.log2foldchange > 0 THEN 1 ELSE 0 END) AS up_regulated,
+                SUM(CASE WHEN de.log2foldchange < 0 THEN 1 ELSE 0 END) AS down_regulated,
+                AVG(de.log2foldchange) AS avg_fold_change,
+                -LOG10(GREATEST(MIN(COALESCE(de.padj, 1)), 0.000001)) AS neg_log_padj,
+                'up' AS regulation_direction
+            FROM Biological_Pathways bp
+            JOIN Gene_Pathway_Associations gpa ON bp.pid = gpa.pid
+            JOIN Genes g ON gpa.gid = g.gid
+            JOIN Differential_Expression de ON g.gid = de.gid
+            JOIN Conditions c ON de.cdid = c.cdid
+            JOIN Cell_Type ct ON de.cell_id = ct.cell_id
+            WHERE 
+                c.name = ? 
+                AND ct.cell = ?
+                AND de.padj < 0.05
+            GROUP BY bp.name
+            HAVING 
+                COUNT(DISTINCT g.gid) >= 3
+                AND SUM(CASE WHEN de.log2foldchange > 0 THEN 1 ELSE 0 END) > SUM(CASE WHEN de.log2foldchange < 0 THEN 1 ELSE 0 END)
+            ORDER BY neg_log_padj DESC
+            LIMIT ?
+            """
+            
+            down_query = """
+            SELECT 
+                bp.name AS pathway_name, 
+                COUNT(DISTINCT g.gid) AS gene_count,
+                SUM(CASE WHEN de.log2foldchange > 0 THEN 1 ELSE 0 END) AS up_regulated,
+                SUM(CASE WHEN de.log2foldchange < 0 THEN 1 ELSE 0 END) AS down_regulated,
+                AVG(de.log2foldchange) AS avg_fold_change,
+                -LOG10(GREATEST(MIN(COALESCE(de.padj, 1)), 0.000001)) AS neg_log_padj,
+                'down' AS regulation_direction
+            FROM Biological_Pathways bp
+            JOIN Gene_Pathway_Associations gpa ON bp.pid = gpa.pid
+            JOIN Genes g ON gpa.gid = g.gid
+            JOIN Differential_Expression de ON g.gid = de.gid
+            JOIN Conditions c ON de.cdid = c.cdid
+            JOIN Cell_Type ct ON de.cell_id = ct.cell_id
+            WHERE 
+                c.name = ? 
+                AND ct.cell = ?
+                AND de.padj < 0.05
+            GROUP BY bp.name
+            HAVING 
+                COUNT(DISTINCT g.gid) >= 3
+                AND SUM(CASE WHEN de.log2foldchange > 0 THEN 1 ELSE 0 END) <= SUM(CASE WHEN de.log2foldchange < 0 THEN 1 ELSE 0 END)
+            ORDER BY neg_log_padj DESC
+            LIMIT ?
+            """
+            
+            cursor.execute(up_query, (condition_name, cell_type, pathway_count))
+            up_results = cursor.fetchall()
+            
+            cursor.execute(down_query, (condition_name, cell_type, pathway_count))
+            down_results = cursor.fetchall()
+            
+            results = up_results + down_results
+            
+            return jsonify(results)
+        
+        except Exception as e:
+            return jsonify({"error": f"Database error occurred: {str(e)}"}), 500
+            
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
+            
+    return jsonify([])
+
+@app.route('/students_25/yhkwok/HW3_folder/yhkwok_visualization/cre_gene_scatter', methods=['POST'])
+@app.route('/cre_gene_scatter', methods=['POST'])
+def cre_gene_scatter():
+    if request.method == 'POST':
+        condition_name = request.form.get('condition_name')
+        cell_type = request.form.get('cell_type')
+        
+        if not condition_name or not cell_type:
+            return jsonify([])
+        
+        conn = None
+        cursor = None
+        try:
+            conn = connect_database()
+            cursor = conn.cursor(dictionary=True)
+            
+            query = """
+            SELECT 
+                g.gene_symbol, 
+                de.log2foldchange as gene_log2fc, 
+                cre.cre_log2foldchange as cre_log2fc,
+                de.padj as gene_padj,
+                0.05 as cre_padj,
+                cgi.distance_to_TSS,
+                cre.chromosome as cre_chr,
+                cre.start_position as cre_start,
+                cre.end_position as cre_end
+            FROM Genes g
+            JOIN Differential_Expression de ON g.gid = de.gid
+            JOIN Conditions c ON de.cdid = c.cdid AND c.name = ?
+            JOIN Cell_Type ct ON de.cell_id = ct.cell_id AND ct.cell = ?
+            JOIN CRE_Gene_Interactions cgi ON g.gid = cgi.gid
+            JOIN Cis_Regulatory_Elements cre ON cgi.cid = cre.cid
+                AND cre.cdid = c.cdid 
+                AND cre.cell_id = ct.cell_id
+            ORDER BY g.gene_symbol
+            """
+            
+            cursor.execute(query, (condition_name, cell_type))
+            results = cursor.fetchall()
+            
+            return jsonify(results)
+        
+        except Exception as e:
+            try:
+                fallback_query = """
+                SELECT 
+                    g.gene_symbol, 
+                    de.log2foldchange as gene_log2fc, 
+                    cre.cre_log2foldchange as cre_log2fc,
+                    de.padj as gene_padj,
+                    0.05 as cre_padj,
+                    cgi.distance_to_TSS,
+                    cre.chromosome as cre_chr,
+                    cre.start_position as cre_start,
+                    cre.end_position as cre_end
+                FROM Genes g
+                JOIN Differential_Expression de ON g.gid = de.gid
+                JOIN Conditions c ON de.cdid = c.cdid 
+                JOIN Cell_Type ct ON de.cell_id = ct.cell_id
+                JOIN CRE_Gene_Interactions cgi ON g.gid = cgi.gid
+                JOIN Cis_Regulatory_Elements cre ON cgi.cid = cre.cid
+                WHERE c.name = ? AND ct.cell = ?
+                ORDER BY g.gene_symbol
+                LIMIT 100
+                """
+                cursor.execute(fallback_query, (condition_name, cell_type))
+                results = cursor.fetchall()
+                return jsonify(results)
+            except Exception:
+                return jsonify({"error": f"Database error occurred: {str(e)}"}), 500
+            
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
+            
+    return jsonify([])
+
+@app.route('/students_25/yhkwok/HW3_folder/yhkwok_visualization/get_conditions', methods=['GET'])
+@app.route('/get_conditions', methods=['GET'])
+def get_conditions():
+    conn = None
+    cursor = None
+    try:
+        conn = connect_database()
+        cursor = conn.cursor(dictionary=True)
+        
+        query = "SELECT name FROM Conditions ORDER BY name"
+        cursor.execute(query)
+        results = cursor.fetchall()
+        
+        return jsonify([item['name'] for item in results])
+    except Exception as e:
+        return jsonify({"error": f"Database error occurred: {str(e)}"}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+            
+@app.route('/students_25/yhkwok/HW3_folder/yhkwok_visualization/get_cell_types', methods=['GET'])
+@app.route('/get_cell_types', methods=['GET'])
+def get_cell_types():
+    conn = None
+    cursor = None
+    try:
+        conn = connect_database()
+        cursor = conn.cursor(dictionary=True)
+        
+        query = "SELECT cell FROM Cell_Type ORDER BY cell"
+        cursor.execute(query)
+        results = cursor.fetchall()
+        
+        return jsonify([item['cell'] for item in results])
+    except Exception as e:
+        return jsonify({"error": f"Database error occurred: {str(e)}"}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+        
+@app.route('/test_db_connection', methods=['GET'])
+def test_db_connection():
+    try:
+        conn = connect_database()
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1")
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        return jsonify({"status": "success", "message": "Database connection successful", "result": result})
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Database connection failed: {str(e)}"}), 500
 
 
 if __name__ == '__main__':
