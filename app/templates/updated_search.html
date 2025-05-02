@@ -311,33 +311,35 @@
         </section>
         
         <!-- Results Section - This will be populated by the backend -->
-        {% if table_html is not none %}
-            <div class="results-container" id="results-container">
-            <section class="card">
-                {{ table_html|safe }}
-                
-                {% if active_tab == 'gene' or active_tab == 'cre' or active_tab == 'tf' %}
-                <div class="export-options">
-                    {% if result_id %}
-                    <form action="{{ url_for('save_current_result', result_id=result_id) }}" method="POST" class="inline-form">
-                        <input type="hidden" name="search_type" value="{{ active_tab }}">
-                        <input type="hidden" name="condition" value="{{ condition }}">
-                        <input type="hidden" name="cell_type" value="{{ cell_type }}">
-                        <button type="submit" class="button">
-                            <i class="fas fa-save"></i> Save to Downloads
+        <div id="results-container">
+            {% if table_html is not none %}
+                <div class="results-container" id="results-container">
+                <section class="card">
+                    {{ table_html|safe }}
+                    
+                    {% if active_tab == 'gene' or active_tab == 'cre' or active_tab == 'tf' %}
+                    <div class="export-options">
+                        {% if result_id %}
+                        <form action="{{ url_for('save_current_result', result_id=result_id) }}" method="POST" class="inline-form">
+                            <input type="hidden" name="search_type" value="{{ active_tab }}">
+                            <input type="hidden" name="condition" value="{{ condition }}">
+                            <input type="hidden" name="cell_type" value="{{ cell_type }}">
+                            <button type="submit" class="button">
+                                <i class="fas fa-save"></i> Save to Downloads
+                            </button>
+                        </form>
+                        {% endif %}
+                        <button class="button" onclick="exportTableToCSV()">
+                            <i class="fas fa-download"></i> Export to CSV
                         </button>
-                    </form>
+                        <a href="{{ url_for('downloads') }}" class="button" style="background-color: #6c757d;">
+                            <i class="fas fa-list"></i> View All Downloads
+                        </a>
+                    </div>
                     {% endif %}
-                    <button class="button" onclick="exportTableToCSV()">
-                        <i class="fas fa-download"></i> Export to CSV
-                    </button>
-                    <a href="{{ url_for('downloads') }}" class="button" style="background-color: #6c757d;">
-                        <i class="fas fa-list"></i> View All Downloads
-                    </a>
-                </div>
-                {% endif %}
-            </section>
-        {% endif %}
+                </section>
+            {% endif %}
+        </div>
     </div>
 
     <script>
@@ -565,24 +567,31 @@
                 const params = new URLSearchParams(window.location.search);
                 params.set('page', page);
 
+                // Show loading spinner
+                document.getElementById('loading-spinner').style.display = 'block';
+
                 fetch("{{ url_for('search') }}?" + params.toString(), {
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest'
                     }
                 })
                 .then(response => {
-                if (!response.ok) throw new Error('Network response was not OK');
-                return response.text();
+                    if (!response.ok) throw new Error('Network response was not OK');
+                    return response.text();
                 })
                 .then(data => {
-                // Replace result container content
-                document.getElementById('results-container').innerHTML = data;
+                    // Replace result container content
+                    document.getElementById('results-container').innerHTML = data;
+                    // Hide loading spinner
+                    document.getElementById('loading-spinner').style.display = 'none';
                 })
-                .catch(error => console.error('AJAX pagination error:', error));
+                .catch(error => {
+                    console.error('AJAX pagination error:', error);
+                    // Hide loading spinner
+                    document.getElementById('loading-spinner').style.display = 'none';
+                });
             }
-            });
-
-
+        });
     </script>
 </body>
 </html>

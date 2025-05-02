@@ -398,6 +398,10 @@ def generate_table_html(results, headers, pagination_info, title=None, **params)
             <a href="javascript:void(0)" 
             class="pagination-link {'disabled' if page >= total_pages else ''}" 
             data-page="{min(total_pages, page+1)}">Next</a>
+
+            <span id="loading-spinner" style="display:none; margin-left:10px;">
+                <i class="fas fa-spinner fa-spin"></i>
+            </span>
         </div>
         """
         return table_html + pagination

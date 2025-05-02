@@ -676,6 +676,12 @@ input:focus, select:focus {
     cursor: not-allowed;
 }
 
+pagination-link.disabled {
+    pointer-events: none;
+    color: #ccc;
+    cursor: not-allowed;
+}
+
 .pagination span {
     font-weight: 500;
     color: var(--dark-gray);
