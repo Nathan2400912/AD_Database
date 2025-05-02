@@ -625,10 +625,19 @@ input:focus, select:focus {
     box-shadow: var(--shadow);
 }
 
-.pagination-form {
-    display: flex;
+.pagination-link {
+    background-color: var(--primary);
+    color: white;
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: var(--transition);
+    display: inline-flex;
     align-items: center;
-    gap: 1rem;
+    gap: 0.5rem;
+    text-decoration: none;
 }
 
 .pagination-controls {
@@ -657,12 +666,12 @@ input:focus, select:focus {
     gap: 0.5rem;
 }
 
-.pagination-form button:hover:not(:disabled) {
+.pagination-link:hover:not([style*="pointer-events: none"]) {
     background-color: #287a5e;
     transform: translateY(-2px);
 }
 
-.pagination-form button:disabled {
+.pagination-link[style*="pointer-events: none;"] {
     background-color: var(--gray);
     cursor: not-allowed;
 }

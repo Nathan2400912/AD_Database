@@ -389,26 +389,15 @@ def generate_table_html(results, headers, pagination_info, title=None, **params)
     
     # Only show pagination if there are multiple pages
     if total_pages > 1:
-        # pagination = f"""
-        # <div class="pagination">
-        #     <form method="GET" action="{search_url}" class="pagination-form">
-        #         {''.join(hidden_fields)}
-        #         <input type="hidden" name="per_page" value="{per_page}">
-        #         <button type="submit" name="page" value="{max(1, page - 1)}" {'disabled' if page <= 1 else ''}>
-        #             Previous
-        #         </button>
-        #         <span>Page {page} of {total_pages}</span>
-        #         <button type="submit" name="page" value="{min(total_pages, page + 1)}" {'disabled' if page >= total_pages else ''}>
-        #             Next
-        #         </button>
-        #     </form>
-        # </div>
-        # """
         pagination = f"""
         <div class="pagination">
-            <a href="#" class="pagination-link" data-page="{max(1, page-1)}" {'style="pointer-events: none; color: #ccc;"' if page <= 1 else ''}>Previous</a>
+            <a href="javascript:void(0)" 
+            class="pagination-link {'disabled' if page <= 1 else ''}" 
+            data-page="{max(1, page-1)}">Previous</a>
             <span>Page {page} of {total_pages}</span>
-            <a href="#" class="pagination-link" data-page="{min(total_pages, page+1)}" {'style="pointer-events: none; color: #ccc;"' if page >= total_pages else ''}>Next</a>
+            <a href="javascript:void(0)" 
+            class="pagination-link {'disabled' if page >= total_pages else ''}" 
+            data-page="{min(total_pages, page+1)}">Next</a>
         </div>
         """
         return table_html + pagination
