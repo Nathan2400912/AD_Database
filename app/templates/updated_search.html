@@ -323,11 +323,17 @@
                         <input type="hidden" name="search_type" value="{{ active_tab }}">
                         <input type="hidden" name="condition" value="{{ condition }}">
                         <input type="hidden" name="cell_type" value="{{ cell_type }}">
+                        <button type="submit" class="button">
+                            <i class="fas fa-save"></i> Save to Downloads
+                        </button>
                     </form>
                     {% endif %}
                     <button class="button" onclick="exportTableToCSV()">
                         <i class="fas fa-download"></i> Export to CSV
                     </button>
+                    <a href="{{ url_for('downloads') }}" class="button" style="background-color: #6c757d;">
+                        <i class="fas fa-list"></i> View All Downloads
+                    </a>
                 </div>
                 {% endif %}
             </section>
@@ -571,7 +577,6 @@
                 .then(data => {
                 // Replace result container content
                 document.getElementById('results-container').innerHTML = data;
-                window.scrollTo(0, 0); // optional — scroll to top after update
                 })
                 .catch(error => console.error('AJAX pagination error:', error));
             }
