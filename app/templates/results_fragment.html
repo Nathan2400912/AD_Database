@@ -1,0 +1,17 @@
+<div class="results-section">
+   <h2>Search Results</h2>
+   {{ table_html|safe }}
+   
+   <div class="pagination">
+     <a href="#" class="pagination-link" data-page="{{ pagination_info.page - 1 }}"
+        {% if pagination_info.page <= 1 %}style="pointer-events: none; color: #ccc;"{% endif %}>
+        Previous
+     </a>
+     <span>Page {{ pagination_info.page }} of {{ pagination_info.total_pages }}</span>
+     <a href="#" class="pagination-link" data-page="{{ pagination_info.page + 1 }}"
+        {% if pagination_info.page >= pagination_info.total_pages %}style="pointer-events: none; color: #ccc;"{% endif %}>
+        Next
+     </a>
+   </div>
+ </div>
+ 

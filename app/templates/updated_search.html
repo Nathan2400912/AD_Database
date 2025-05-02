@@ -312,6 +312,7 @@
         
         <!-- Results Section - This will be populated by the backend -->
         {% if table_html is not none %}
+            <div class="results-container" id="results-container">
             <section class="card">
                 {{ table_html|safe }}
                 
@@ -322,17 +323,11 @@
                         <input type="hidden" name="search_type" value="{{ active_tab }}">
                         <input type="hidden" name="condition" value="{{ condition }}">
                         <input type="hidden" name="cell_type" value="{{ cell_type }}">
-                        <!-- <button type="submit" class="button"> 
-                            <i class="fas fa-save"></i> Save to Downloads
-                        </button> -->
                     </form>
                     {% endif %}
                     <button class="button" onclick="exportTableToCSV()">
                         <i class="fas fa-download"></i> Export to CSV
                     </button>
-                    <a href="{{ url_for('downloads') }}" class="button" style="background-color: #6c757d;">
-                        <i class="fas fa-list"></i> View All Downloads
-                    </a>
                 </div>
                 {% endif %}
             </section>
@@ -529,6 +524,60 @@
                 scrollToResults();
             }
         };
+
+        // Function to fetch results via AJAX
+        function fetchResults(params) {
+            const queryString = new URLSearchParams(params).toString();
+            const url = `/search?${queryString}`;
+
+            fetch(url, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.text())
+            .then(data => {
+                const container = document.querySelector('.results-container');
+                if (container) {
+                    container.innerHTML = data;
+                }
+                scrollToResults();
+            })
+            .catch(error => {
+                console.error('Error fetching results:', error);
+            });
+        }
+
+        // new!! for ajax
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('pagination-link')) {
+                e.preventDefault();
+                const page = e.target.getAttribute('data-page');
+
+                // Build your GET params here — this part is key.
+                const params = new URLSearchParams(window.location.search);
+                params.set('page', page);
+
+                fetch("{{ url_for('search') }}?" + params.toString(), {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => {
+                if (!response.ok) throw new Error('Network response was not OK');
+                return response.text();
+                })
+                .then(data => {
+                // Replace result container content
+                document.getElementById('results-container').innerHTML = data;
+                window.scrollTo(0, 0); // optional — scroll to top after update
+                })
+                .catch(error => console.error('AJAX pagination error:', error));
+            }
+            });
+
+
     </script>
 </body>
 </html>

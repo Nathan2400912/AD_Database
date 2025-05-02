@@ -557,11 +557,30 @@ input:focus, select:focus {
 }
 
 /* Keep the table header sticky */
-.results-table th,
+.results-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.results-table th {
+    background-color: var(--primary);
+    color: white;
+    padding: 16px 20px;
+    font-size: 1.1rem;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid #ddd;
+    position: relative;
+}
+
 .results-table td {
     max-width: 250px;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 12px 15px;
+    border-bottom: 1px solid #e0e0e0;
 }
 
 .results-table td:hover {
@@ -588,6 +607,13 @@ input:focus, select:focus {
     background-color: #edf7f2;
 }
 
+.results-meta{
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    align-items: center;
+}
+
 .pagination {
     display: flex;
     justify-content: center;
@@ -599,7 +625,7 @@ input:focus, select:focus {
     box-shadow: var(--shadow);
 }
 
-.pagination form {
+.pagination-form {
     display: flex;
     align-items: center;
     gap: 1rem;
@@ -617,7 +643,7 @@ input:focus, select:focus {
     text-align: center;
 }
 
-.pagination button {
+.pagination-form button {
     background-color: var(--primary);
     color: white;
     border: none;
@@ -631,12 +657,12 @@ input:focus, select:focus {
     gap: 0.5rem;
 }
 
-.pagination button:hover:not(:disabled) {
+.pagination-form button:hover:not(:disabled) {
     background-color: #287a5e;
     transform: translateY(-2px);
 }
 
-.pagination button:disabled {
+.pagination-form button:disabled {
     background-color: var(--gray);
     cursor: not-allowed;
 }

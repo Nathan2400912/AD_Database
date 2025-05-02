@@ -23,7 +23,7 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.secret_key = 'your_secret_key_here'  # Required for session
 
 # Directory to store saved results
-SAVE_DIR = '/var/www/html/students_25/nhwong/app/saved_results'
+SAVE_DIR = '/var/www/html/students_25/Team7/app/saved_results'
 try:
     if not os.path.exists(SAVE_DIR):
         os.makedirs(SAVE_DIR)
@@ -40,7 +40,7 @@ SAVE_METADATA = os.path.join(SAVE_DIR, 'saved_files.json')
 saved_files = {}
 
 def connect_database(hostname='bioed-new.bu.edu', port=4253, database='Team7', 
-                    username='', password=''):
+                    username='schen295', password='19980220'):
     """Connect to the MariaDB database."""
     try:
         connection = mariadb.connect(
@@ -352,11 +352,15 @@ def generate_table_html(results, headers, pagination_info, title=None, **params)
     table_html = f"""
     <div class="results-section">
         <h2>{title or "Search Results"}</h2>
-        <p>Showing {len(results)} of {total_records} total results (page {page} of {total_pages})</p>
+        <div class="results-meta">
+            <span class="badge results-count">{len(results)} results</span>
+            <span class="badge page-info">Page {page} of {total_pages}</span>
+        </div>
         
         <div class="table-container">
             <table class="results-table">
-                <thead><tr>
+                <thead>
+                    <tr>
     """
     
     for header in headers:
@@ -385,19 +389,26 @@ def generate_table_html(results, headers, pagination_info, title=None, **params)
     
     # Only show pagination if there are multiple pages
     if total_pages > 1:
+        # pagination = f"""
+        # <div class="pagination">
+        #     <form method="GET" action="{search_url}" class="pagination-form">
+        #         {''.join(hidden_fields)}
+        #         <input type="hidden" name="per_page" value="{per_page}">
+        #         <button type="submit" name="page" value="{max(1, page - 1)}" {'disabled' if page <= 1 else ''}>
+        #             Previous
+        #         </button>
+        #         <span>Page {page} of {total_pages}</span>
+        #         <button type="submit" name="page" value="{min(total_pages, page + 1)}" {'disabled' if page >= total_pages else ''}>
+        #             Next
+        #         </button>
+        #     </form>
+        # </div>
+        # """
         pagination = f"""
         <div class="pagination">
-            <form method="GET" action="{search_url}">
-                {''.join(hidden_fields)}
-                <input type="hidden" name="per_page" value="{per_page}">
-                <button type="submit" name="page" value="{max(1, page - 1)}" {'disabled' if page <= 1 else ''}>
-                    Previous
-                </button>
-                <span>Page {page} of {total_pages}</span>
-                <button type="submit" name="page" value="{min(total_pages, page + 1)}" {'disabled' if page >= total_pages else ''}>
-                    Next
-                </button>
-            </form>
+            <a href="#" class="pagination-link" data-page="{max(1, page-1)}" {'style="pointer-events: none; color: #ccc;"' if page <= 1 else ''}>Previous</a>
+            <span>Page {page} of {total_pages}</span>
+            <a href="#" class="pagination-link" data-page="{min(total_pages, page+1)}" {'style="pointer-events: none; color: #ccc;"' if page >= total_pages else ''}>Next</a>
         </div>
         """
         return table_html + pagination
@@ -555,9 +566,9 @@ def search():
         page = 1
         
     try:
-        per_page = int(data.get('per_page', 50))  # Default to 10 items per page
+        per_page = int(data.get('per_page', 10))  # Default to 10 items per page
     except (ValueError, TypeError):
-        per_page = 50
+        per_page = 10
     
     # Print debug info
     print(f"Pagination: page={page}, per_page={per_page}")
@@ -585,6 +596,9 @@ def search():
                               cell_type=None,
                               active_tab=active_tab,
                               result_id=None)
+    
+    # new!! add for ajax
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     
     try:
         results = None
@@ -658,91 +672,82 @@ def search():
             if results:
                 headers = list(results[0].keys())
                 table_html = generate_table_html(
-                    results=results, 
-                    headers=headers, 
-                    pagination_info=pagination_info, 
-                    title=title,
-                    condition=condition,
-                    cell_type=cell_type,
-                    active_tab=active_tab,
-                    gene_params=gene_params,
-                    output_fields=output_fields,
-                    include_de=include_de,
-                    de_params=de_params,
-                    cre_params=cre_params,
-                    cre_fields=cre_fields,
-                    tf_params=tf_params,
-                    tf_fields=tf_fields
-                )
+                        results=results, 
+                        headers=headers, 
+                        pagination_info=pagination_info, 
+                        title=title,
+                        condition=condition,
+                        cell_type=cell_type,
+                        active_tab=active_tab,
+                        gene_params=gene_params,
+                        output_fields=output_fields,
+                        include_de=include_de,
+                        de_params=de_params,
+                        cre_params=cre_params,
+                        cre_fields=cre_fields,
+                        tf_params=tf_params,
+                        tf_fields=tf_fields
+                    )
+
+                if is_ajax:
+                    return render_template('results_fragment.html',
+                                            table_html=table_html,
+                                            results=results,
+                                            headers=headers,
+                                            pagination_info=pagination_info,
+                                            title=title,
+                                            condition=condition,
+                                            cell_type=cell_type,
+                                            active_tab=active_tab,
+                                            result_id=result_id if results else None)
+                                            # gene_params=gene_params,
+                                            # output_fields=output_fields,
+                                            # include_de=include_de,
+                                            # de_params=de_params,
+                                            # cre_params=cre_params,
+                                            # cre_fields=cre_fields,
+                                            # tf_params=tf_params,
+                                            # tf_fields=tf_fields,
+                                            # error=error)
+                else:
+                    # original thml rendering for full page loads
+                    table_html = table_html
+                    return render_template('updated_search.html',
+                                           table_html=table_html,
+                                           condition=condition,
+                                           cell_type=cell_type,
+                                           active_tab=active_tab,
+                                           error=error,
+                                           result_id=result_id if results else None,
+                                           pagination_info=pagination_info)
             else:
-                table_html = "<p>No gene results found matching your criteria.</p>"
-                
-        else:
-            error = "Error: Invalid search type."
-            table_html = ""
-        
-        # Save the results to a file if requested
-        if results and (save_option == 'save' or save_option == 'both'):
-            # For saving to file, we need to get ALL results without pagination
-            all_results, _, error = execute_query(
-                cursor, condition, cell_type, gene_params,
-                output_fields, cre_fields, tf_fields, include_de=include_de, 
-                de_params=de_params, cre_params=cre_params, tf_params=tf_params,
-                page=1, per_page=1000000  # Large value to get all results
-            )
-            
-            current_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"{search_type}_{condition}_{cell_type}_{current_time}_{result_id}.csv"
-            
-            if save_results_to_csv(all_results, filename):
-                # Store file metadata
-                filepath = os.path.join(SAVE_DIR, filename)
-                file_size = get_file_size(filepath)
-                preview = get_preview(filepath)
-                
-                saved_files[result_id] = {
-                    'id': result_id,
-                    'filename': filename,
-                    'filepath': filepath,
-                    'title': title,
-                    'description': description,
-                    'type': search_type.capitalize(),
-                    'date': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    'size': file_size,
-                    'preview': preview,
-                    'condition': condition,
-                    'cell_type': cell_type
-                }
-                
-                # If save only, redirect to downloads page
-                if save_option == 'save':
-                    return redirect(url_for('downloads'))
-            else:
-                error = "Error: Failed to save results to file."
-        
-        # Store results in session for save_current_result (store the paginated results)
-        if results:
-            session['current_results'] = results
-        
-        # Return results for display
-        return render_template('updated_search.html', 
-                              table_html=table_html,
-                              condition=condition,
-                              cell_type=cell_type,
-                              active_tab=active_tab,
-                              error=error,
-                              result_id=result_id if results else None,
-                              pagination_info=pagination_info)
-        
+                if is_ajax:
+                    return jsonify({
+                        'status': 'error',
+                        'message': error or "No results found matching your criteria."
+                    })
+                else:
+                    return render_template('updated_search.html',
+                                           error=error or "No results found matching your criteria.",
+                                           table_html=None,
+                                           condition=None,
+                                           cell_type=None,
+                                           active_tab=active_tab,
+                                           result_id=None)
     except Exception as e:
-        error_message = f"Application error: {str(e)}"
-        return render_template('updated_search.html', 
-                              error=error_message,
-                              table_html=None,
-                              condition=None,
-                              cell_type=None,
-                              active_tab=active_tab,
-                              result_id=None)
+        if is_ajax:
+            return jsonify({
+                'status': 'error',
+                'message': f"Application error: {str(e)}"
+            }), 500
+        else:
+            return render_template('updated_search.html',
+                                  error=f"Application error: {str(e)}",
+                                  table_html=None,
+                                  condition=None,
+                                  cell_type=None,
+                                  active_tab=active_tab,
+                                  result_id=None)
         
     finally:
         if connection:
