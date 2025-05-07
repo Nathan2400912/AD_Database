@@ -366,6 +366,27 @@ input:focus, select:focus {
     margin-top: 2rem;
 }
 
+.search-parameter {
+    margin-bottom: 0.5rem;
+    padding: 1rem;
+    margin-left: 1rem;
+}
+  
+.search-parameter h4 {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    color: #444;
+    border-left: 4px solid #287a5e;
+    padding-left: 0.5rem;
+}
+
+code {
+    background: #f1f1f1;
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-size: 0.95rem;
+}
+
 .link-button {
     background: transparent;
     color: var(--primary);
@@ -525,9 +546,26 @@ input:focus, select:focus {
 .accordion-content.active {
     display: block; 
 }
+
+.accordion-item {
+    border-bottom: 1px solid #ddd;
+}
+
+.feature-list {
+    padding-left: 1.5rem;  /* adds spacing to the left */
+    margin-top: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.feature-list li {
+    margin-bottom: 0.5rem;
+    line-height: 1.5;
+}
+
 .rotate-180 {
     transform: rotate(180deg);
 }
+
 .hidden {
     display: none;
 }

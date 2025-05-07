@@ -42,32 +42,146 @@
             </div>
 
             <div class="form-section">
+                <h3 class="form-section-title">General Search Guide</h3>
+                <p><strong> To start searching, you must first select one condition and one cell type.</strong></p>
+
+                <div class="accordion">
+                    <div class="accordion-header" onclick="toggleAccordion('search1', this)">
+                        <span>Gene Search Parameters</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+
+                    <div id="search1" class="accordion-content">
+                        <section class="search-parameter">
+                            <h4>Select Identifier Type</h4>
+                            <p>Filter results based on one of the following identifiers:</p>
+                            <ul>
+                                <li><strong>Gene Symbol</strong> (e.g. <code>MIB2</code>)</li>
+                                <li><strong>Entrez ID</strong> (e.g. <code>142678</code>)</li>
+                                <li><strong>Ensembl ID</strong> (e.g. <code>ENSG00000197530</code>)</li>
+                            </ul>
+                        </section>
+
+                        <section class="search-parameter">
+                            <h4>Chromosome</h4>
+                            <p>Enter a chromosome number to filter genes located on that chromosome.</p>
+                        </section>
+
+                        <section class="search-parameter">
+                            <h4>Start Position</h4>
+                            <p>Enter the desired start position to return genes starting after this position.</p>
+                        </section>
+
+                        <section class="search-parameter">
+                            <h4>End Position</h4>
+                            <p>Enter the desired end position to return genes ending before this position.</p>
+                        </section>
+
+                        <section class="search-parameter">
+                            <h4>Biological Pathway</h4>
+                            <p>Enter a biological pathway name to filter genes associated with it.</p>
+                        </section>
+
+                        <section class="search-parameter">
+                            <h4>Differential Expression</h4>
+                            <p>Optionally filter genes based on differential expression criteria:</p>
+                            <ul>
+                              <li><strong>Log<sub>2</sub> Fold Change &gt;</strong> (e.g. <code>1</code>)</li>
+                              <li><strong>Adjusted P-value &lt;</strong> (e.g. <code>0.05</code>)</li>
+                            </ul>
+                        </section>
+                    </div>
+                </div>
+
+                <div class="accordion">
+                    <div class="accordion-header" onclick="toggleAccordion('search2', this)">
+                        <span>Cis Regulatory Elements (CRE) Search Parameters</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+
+                    <div id="search2" class="accordion-content">
+                        <section class="search-parameter">
+                            <h4>Chromosome</h4>
+                            <p>Enter a chromosome number to filter CREs located on the input chromosome.</p>
+                        </section>
+
+                        <section class="search-parameter">
+                            <h4>Start Position</h4>
+                            <p>Enter the desired start position to return CREs starting after this position.</p>
+                        </section>
+
+                        <section class="search-parameter">
+                            <h4>End Position</h4>
+                            <p>Enter the desired end position to return CREs ending before this position.</p>
+                        </section>
+
+                        <section class="search-parameter">
+                            <h4>Minimum Log2 Fold Change</h4>
+                            <p>Enter an absolute Log2FC value to filter out CREs that do not satisfy.</p>
+                        </section>
+                    </div>
+                </div>
+
+                <div class="accordion">
+                    <div class="accordion-header" onclick="toggleAccordion('search3', this)">
+                        <span>Transcription Factor (TF) Search Parameters</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+
+                    <div id="search3" class="accordion-content">
+                        <section class="search-parameter">
+                            <h4>Transcription Factor Name</h4>
+                            <p>Filter results based on TF names. (e.g. <code>TREM2</code>)</p>
+                        </section>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
                 <h3 class="form-section-title">Common Queries</h3>
                 <div class="accordion">
                     <div class="accordion-header" onclick="toggleAccordion('query1', this)">
-                        <span>Find differentially expressed genes for a condition</span>
+                        <span>Find CREs linked to a specific gene</span>
                         <i class="fas fa-chevron-down"></i>
                     </div>
                     <div id="query1" class="accordion-content">
-                        <pre><code>SELECT g.gene_symbol, d.log2foldchange, d.padj 
-FROM Genes g
-JOIN Differential_Expression d USING (gid)
-JOIN Conditions c USING (cdid)
-WHERE c.name = 'IFN' AND d.padj < 0.05</code></pre>
+                        <pre>SELECT g.name, cre.name, p.name
+FROM Conditions 
+JOIN Cis_Regulatory_Elements cre USING (cdid) 
+JOIN CRE_Gene_Interactions USING (cid) 
+JOIN Gene USING (gid);</pre>
                     </div>
                 </div>
 
                 <div class="accordion">
                     <div class="accordion-header" onclick="toggleAccordion('query2', this)">
-                        <span>Find CREs linked to a specific gene</span>
+                        <span>Find differentially expressed genes for a condition</span>
                         <i class="fas fa-chevron-down"></i>
                     </div>
                     <div id="query2" class="accordion-content">
-                        <pre><code>SELECT c.chromosome, c.start_position, c.end_position
-FROM CRE_Gene_Interactions cgi
-JOIN Genes g USING (gid)
-JOIN Cis_Regulatory_Elements c USING (cid)
-WHERE g.gene_symbol = 'TREM2'</code></pre>
+                        <pre>SELECT cre.name AS CRE_name
+FROM Conditions 
+JOIN Cis_Regulatory_Elements cre USING (cdid) 
+JOIN CRE_Gene_Interactions USING (cid) 
+JOIN Gene USING (gid)
+JOIN Differential_Expression de USING (gid)
+WHERE de.padj < 0.001; </pre>
+                    </div>
+                </div>
+
+                <div class="accordion">
+                    <div class="accordion-header" onclick="toggleAccordion('query3', this)">
+                        <span>Find CREs linked to a specific transcription factor</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div id="query3" class="accordion-content">
+                        <pre>SELECT tf.name, cre.name
+FROM Conditions 
+JOIN Cis_Regulatory_Elements cre USING (cdid) 
+JOIN Merged_CRES USING (mcid) 
+JOIN TF_CRE_Interactions USING (mcid)
+JOIN Transcription_Factors tf USING (tfid);
+WHERE g.gene_symbol = 'TREM2';</pre>
                     </div>
                 </div>
             </div>
